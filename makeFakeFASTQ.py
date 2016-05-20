@@ -21,6 +21,7 @@ from random import randint,sample
 # Valid values for quality_type are 'high', 'medium', 'low'
 OPT_DEFAULTS = {
         'barcode_length':10, 'spacer_length':1, 'max_num_families':15, 'max_num_reads': 10, 'read_length':156,
+        'buffer_both_sides': 0, 'buffer_end': 1, 'truncate_both_sides': 0, 'truncate_end': 1,
         'prefix':'DSWF', 'instrument':'NS500770', 'flow_cell':'H5VNJAFXX', 'x_min': 1015, 'x_max':26894,
         'y_min': 1017, 'y_max': 20413, 'lane_min': 1, 'lane_max':4, 'quality_type': 'high',
         'swathes': [111,112,113,114,115,116,211,212,213,214,215,216],
@@ -38,6 +39,8 @@ def main(argv):
 
     parser.add_argument('--barcode_length','-bcl',type=int, required=False,
             help='Length of Barcode at beginning and end of sequence. Default: 10')
+    parser.add_argument('--barcode','-bc',type=int, required=False,
+            help='Barcode string to use. Default: None')
     parser.add_argument('--spacer_length','-sl',type=int, required=False,
             help='Length of Spacer between Barcode and sequence. Default: 1')
     parser.add_argument('--max_num_families', '-nf', type=int, required=False,
@@ -88,6 +91,22 @@ def main(argv):
             help='Create a map file of molecules to number of families to \
             number of reads.')
 
+    # Sequence Buffering and Truncation Options
+    parser.add_argument('--buffer_end','-be',type=int, required=False,
+            help='Add buffer sequence to end of FASTA line. Default: 1')
+    parser.add_argument('--buffer_both_sides', '-bbs', type=int, required=False,
+            help='Add buffer sequence to both sides of FASTA line.  Default: 0')
+    parser.add_argument('--truncate_end','-te', type=int, required=False,
+            help='Truncate sequence at the end of the FASTA line. Default: 1')
+    parser.add_argument('--truncate_both_sides','-tbs', type=int, required=False,
+            help='Truncate both sides of FASTA sequence line.  Default: 0')
+
+    # Testing options
+    parser.add_argument('--buffer_seq','-buffSeq',type=int, required=False,
+            help='Buffer string to use. Default: None')
+    parser.add_argument('--quality','-qual',type=int, required=False,
+            help='Quality string to use. Default: None')
+
     args = parser.parse_args(argv[1:])
     print("args type is {}".format(type(args)))
 
@@ -119,35 +138,57 @@ def main(argv):
     print("Finished generating FASTQ files")
 
 # add random sequence to the FASTA line to reach read length depending on config
-def buffer_sequence(args,seq):
-    seq_diff = args.read_length - len(seq)
-    cnt_both_sides = seq_diff / 2
-    cnt_front = seq_diff % 2
-    if cnt_front:
-        new_seq = ''.join([random_sequence(cnt_both_sides+cnt_front), seq, random_sequence(cnt_both_sides)])
+# count is used to buffer a sequence that needs a barcode+spacer added on the front
+# but since we may be buffer_both_sides, we can't include the barcode+spacer on front
+# until the read is generated
+def buffer_sequence(args,seq,count=None):
+    seq_diff = count if count else args.read_length - len(seq)
+    if seq_diff <= 0:
+        return seq
+    buffer_seq = args.buffer_seq if args.buffer_seq else random_sequence(seq_diff)
+    if args.buffer_end:
+        new_seq = ''.join([seq, buffer_seq[:seq_diff]])
     else:
-        new_seq = ''.join([random_sequence(cnt_both_sides), seq, random_sequence(cnt_both_sides)])
+        if args.buffer_both_sides:
+            cnt_both_sides = seq_diff / 2
+            cnt_front = seq_diff % 2
+            end_buffer_seq = args.buffer_seq[:cnt_both_sides] or random_sequence(cnt_both_sides)
+            front_buffer_seq = args.buffer_seq[:cnt_both_sides] or random_sequence(cnt_front)
+            if cnt_front:
+                joined_seq = ''.join([args.buffer_seq[:cnt_front], front_buffer_seq])
+                front_buffer_seq = joined_seq
+            new_seq = ''.join([front_buffer_seq, seq, end_buffer_seq])
     return new_seq
 
 # remove sequence from the FASTA line to reach read length depending on config
-def truncate_sequence(args,seq):
-    seq_diff = len(seq) - args.read_length
-    cnt_both_sides = seq_diff/2
-    cnt_front = seq_diff % 2
-    if cnt_front:
-        new_seq = seq[cnt_both_sides+cnt_front:-cnt_both_sides]
+# count is used to truncate a sequence that needs a barcode+spacer added on the front
+# but since we may be truncate_both_sides, we can't include the barcode+spacer on front
+# until the read is generated
+def truncate_sequence(args,seq,count=None):
+    seq_diff = count if count else len(seq) - args.read_length
+    if seq_diff <= 0:
+        return seq
+    if args.truncate_end:
+        new_seq = seq[0:-seq_diff]
     else:
-        new_seq = seq[cnt_both_sides:-cnt_both_sides]
+        if args.truncate_both_sides:
+            cnt_both_sides = seq_diff/2
+            cnt_front = seq_diff % 2
+            new_seq = seq[cnt_both_sides:-cnt_both_sides]
+            if cnt_front:
+                new_seq = seq[cnt_both_sides+cnt_front:-cnt_both_sides]
     return new_seq
 
 def make_ds_read(args,seq,barcode):
     ds_spacer = 'T'*args.spacer_length
     ds_length = len(ds_spacer)+len(barcode)
     total_length = len(seq) + ds_length
+    if total_length == args.read_length:
+        return "{}{}{}".format(barcode, ds_spacer, seq)
     if ( total_length > args.read_length):
-        ds_seq = truncate_sequence(args,seq)
+        ds_seq = truncate_sequence(args,seq,total_length-args.read_length)
     if (total_length < args.read_length):
-        ds_seq = buffer_sequence(args,seq)
+        ds_seq = buffer_sequence(args,seq,args.read_length-total_length)
     read = "{}{}{}".format(barcode, ds_spacer, ds_seq)
     return read
 
@@ -161,9 +202,9 @@ def make_ds_read(args,seq,barcode):
 #+
 #AAAAA#EEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE<EEEEEEEEEEEAEEEEEEEEEAEEEEEEEEEEEEEEEEEEEE<EEEEEEEEEEEEEEEEEAEEEEE<EEEEEEEEEEEEEEEEEAE<<AA
 def make_family(header, seq, args):
-    barcode = args.barcode or random_sequence(args.barcode_length)
+    barcode = args.barcode if args.barcode else random_sequence(args.barcode_length)
     (fastq_header, paired_header) = fastq_entry_header(args, header, barcode)
-    quality = args.quality or fastq_quality(args,len(seq))
+    quality = args.quality if args.quality else fastq_quality(args,len(seq))
     ds_read = make_ds_read(args,seq,barcode)
     num_reads = randint(1,args.max_num_reads);
     if args.map_file:
