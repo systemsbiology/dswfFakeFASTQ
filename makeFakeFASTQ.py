@@ -20,7 +20,7 @@ from random import randint,sample
 # in the FASTQ file is 360*15*10 = 54,000.
 # Valid values for quality_type are 'high', 'medium', 'low'
 OPT_DEFAULTS = {
-        'barcode_length':10, 'spacer_length':1,'max_num_families':15, 'max_num_reads': 10, 'read_length':156,
+        'barcode_length':10, 'spacer_length':1, 'max_num_families':15, 'max_num_reads': 10, 'read_length':156,
         'prefix':'DSWF', 'instrument':'NS500770', 'flow_cell':'H5VNJAFXX', 'x_min': 1015, 'x_max':26894,
         'y_min': 1017, 'y_max': 20413, 'lane_min': 1, 'lane_max':4, 'quality_type': 'high',
         'swathes': [111,112,113,114,115,116,211,212,213,214,215,216],
@@ -105,15 +105,6 @@ def main(argv):
         line = fasta.readline()
         if not line: break
         seq = line.rstrip('\r\n').upper()
-        if (len(seq) < args.read_length):
-            seq_diff = args.read_length - len(seq)
-            cnt_both_sides = seq_diff / 2
-            cnt_front = seq_diff % 2
-            new_seq = ''.join([random_sequence(cnt_both_sides), seq, random_sequence(cnt_both_sides)])
-            if cnt_front:
-                seq = ''.join([random_sequence(cnt_front), new_seq])
-            else:
-                seq = new_seq
         num_families = randint(1,args.max_num_families)
         print("making {} families for {}".format(num_families, header))
         args.num_families = num_families
@@ -127,6 +118,39 @@ def main(argv):
     seq2_file.close()
     print("Finished generating FASTQ files")
 
+# add random sequence to the FASTA line to reach read length depending on config
+def buffer_sequence(args,seq):
+    seq_diff = args.read_length - len(seq)
+    cnt_both_sides = seq_diff / 2
+    cnt_front = seq_diff % 2
+    if cnt_front:
+        new_seq = ''.join([random_sequence(cnt_both_sides+cnt_front), seq, random_sequence(cnt_both_sides)])
+    else:
+        new_seq = ''.join([random_sequence(cnt_both_sides), seq, random_sequence(cnt_both_sides)])
+    return new_seq
+
+# remove sequence from the FASTA line to reach read length depending on config
+def truncate_sequence(args,seq):
+    seq_diff = len(seq) - args.read_length
+    cnt_both_sides = seq_diff/2
+    cnt_front = seq_diff % 2
+    if cnt_front:
+        new_seq = seq[cnt_both_sides+cnt_front:-cnt_both_sides]
+    else:
+        new_seq = seq[cnt_both_sides:-cnt_both_sides]
+    return new_seq
+
+def make_ds_read(args,seq,barcode):
+    ds_spacer = 'T'*args.spacer_length
+    ds_length = len(ds_spacer)+len(barcode)
+    total_length = len(seq) + ds_length
+    if ( total_length > args.read_length):
+        ds_seq = truncate_sequence(args,seq)
+    if (total_length < args.read_length):
+        ds_seq = buffer_sequence(args,seq)
+    read = "{}{}{}".format(barcode, ds_spacer, ds_seq)
+    return read
+
 # FASTQ is:
 # Line1 @sequence id
 # Line2 raw sequence letters
@@ -137,22 +161,23 @@ def main(argv):
 #+
 #AAAAA#EEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE<EEEEEEEEEEEAEEEEEEEEEAEEEEEEEEEEEEEEEEEEEE<EEEEEEEEEEEEEEEEEAEEEEE<EEEEEEEEEEEEEEEEEAE<<AA
 def make_family(header, seq, args):
-    random_barcode = random_sequence(10)
-    fastq_header, paired_header = fastq_entry_header(args, header, random_barcode)
+    barcode = args.barcode or random_sequence(args.barcode_length)
+    (fastq_header, paired_header) = fastq_entry_header(args, header, barcode)
+    quality = args.quality or fastq_quality(args,len(seq))
+    ds_read = make_ds_read(args,seq,barcode)
     num_reads = randint(1,args.max_num_reads);
-    quality = fastq_quality(args,len(seq))
-    #print("making {} reads for {} random barcode {} header".format(num_reads, random_barcode, fastq_header))
-    args.map_file.write("{}	{}	{}	{}\n".format(header, args.num_families, num_reads, random_barcode))
+    if args.map_file:
+        args.map_file.write("{}	{}	{}	{}\n".format(header, args.num_families, num_reads, barcode))
+    #print("making {} reads for {} random barcode {} header".format(num_reads, barcode, fastq_header))
     family = []
     family_seq2 = []
     for i in range(1,num_reads+1):
-        read = "{}{}{}{}{}".format(random_barcode, 'T', seq, 'T', random_barcode)
         family.append(fastq_header)
-        family.append(read)
+        family.append(ds_read)
         family.append("+")
         family.append(quality)
         family_seq2.append(paired_header)
-        family_seq2.append(read)
+        family_seq2.append(ds_read)
         family_seq2.append("+")
         family_seq2.append(quality)
     return family, family_seq2
@@ -218,22 +243,21 @@ def fastq_entry_header(args, fasta_header, barcode):
     full_tile = "{}{:02}".format(swath, tile)
     filter = sample(args.is_filtered,1)[0]
     if args.include_fasta_header_in_fastq_header:
-        c = '0'+fasta_header
-        control = c.replace(">", ":")
+        if fasta_header.startswith(">"):
+            c = '0'+fasta_header
+            control = c.replace(">", ":")
+        else:
+            control = '0:'+fasta_header
     else:
         control = '0'
     if args.include_barcode_in_fastq_header:
         c = control
         control = c+':'+barcode
-    if args.paired_end:
-        return "@{}:{}:{}:{}:{}:{}:{} {}:{}:{}".format(args.instrument, '1',
+    # always return both headers and allow downstream to decide what to output
+    return "@{}:{}:{}:{}:{}:{}:{} {}:{}:{}".format(args.instrument, '1',
                 args.flow_cell, lane, full_tile, x_pos, y_pos, '1', filter,
-                control ), "@{}:{}:{}:{}:{}:{}:{} {}:{}:{}".format(args.instrument,
+                control), "@{}:{}:{}:{}:{}:{}:{} {}:{}:{}".format(args.instrument,
                 '1', args.flow_cell, lane, full_tile, x_pos, y_pos, '2', filter, control )
-    else:
-        return "@{}:{}:{}:{}:{}:{}:{} {}:{}:{}".format(args.instrument, '1',
-                args.flow_cell, lane, full_tile, x_pos, y_pos, '1', filter,
-                control )
 
 if __name__=='__main__':
     sys.exit(main(sys.argv))
