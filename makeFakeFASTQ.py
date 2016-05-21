@@ -204,12 +204,12 @@ def make_ds_read(args,seq,barcode):
 def make_family(header, seq, args):
     barcode = args.barcode if args.barcode else random_sequence(args.barcode_length)
     (fastq_header, paired_header) = fastq_entry_header(args, header, barcode)
-    quality = args.quality if args.quality else fastq_quality(args,len(seq))
     ds_read = make_ds_read(args,seq,barcode)
     num_reads = randint(1,args.max_num_reads);
     if args.map_file:
         args.map_file.write("{}	{}	{}	{}\n".format(header, args.num_families, num_reads, barcode))
     #print("making {} reads for {} random barcode {} header".format(num_reads, barcode, fastq_header))
+    quality = args.quality if args.quality else fastq_quality(args,len(ds_read))
     family = []
     family_seq2 = []
     for i in range(1,num_reads+1):
