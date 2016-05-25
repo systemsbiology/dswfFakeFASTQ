@@ -293,32 +293,36 @@ def random_sequence(length):
     return random_sequence
 
 # make a sequence id header
-# @<instrument>:<run number>:<flowcell ID>:<lane>:<tile>:<x-pos>:<y-pos> <read>:<is filtered>:<control number>:<sample number>
-# <instrument>     Characters allowed: a-z, A-Z, 0-9, underscore   Instrument ID
-# <run number>     Numerical                                       Run number on instrument
-# <flowcell ID>    Characters allowed: a-z, A-Z, 0-9               Flow cell ID
-# <lane>           Numerical                                       Lane number
-# <tile>           Numerical                                       Tile number
-# <x_pos>          Numerical                                       X coordinate of cluster
-# <y_pos>          Numerical                                       Y coordinate of cluster
-# <read>           Numerical                                       Read number. 1 can be single read or Read 2 of paired-end
-# <is filtered>    Y or N                                          Y if the read is filtered (did not pass), N otherwise
-# <control number> Numerical                                       0 when none of the control bits are on, otherwise it is an even number.
-#                                                                  On HiSeq X and NextSeq systems, control specification is not performed
-#                                                                  and this number is always 0.
-# <sample number>  Numerical                                       Sample number from sample sheet
-# @NS500773:24:H5VNJAFXX:1:11101:13101:1024 1:N:0:CGATGT           Paired end #1
-# @NS500773:24:H5VNJAFXX:1:11101:13101:1024 2:N:0:CGATGT           Paired end #2
+# @<instrument>:<run number>:<flowcell ID>:<lane>:<tile>:<x-pos>:<y-pos> <read>:<is filtered>:<control number>:<sample number> # nopep8
+# <instrument>     Characters allowed: a-z, A-Z, 0-9, underscore   Instrument ID # nopep8
+# <run number>     Numerical                                       Run number on instrument # nopep8
+# <flowcell ID>    Characters allowed: a-z, A-Z, 0-9               Flow cell ID. # nopep8
+# <lane>           Numerical                                       Lane number # nopep8
+# <tile>           Numerical                                       Tile number # nopep8
+# <x_pos>          Numerical                                       X coordinate of cluster # nopep8
+# <y_pos>          Numerical                                       Y coordinate of cluster # nopep8
+# <read>           Numerical                                       Read number. 1 can be single read or Read 2 of paired-end # nopep8
+# <is filtered>    Y or N                                          Y if the read is filtered (did not pass), N otherwise # nopep8
+# <control number> Numerical                                       0 when none of the control bits are on, otherwise it is an even number. # nopep8
+#                                                                  On HiSeq X and NextSeq systems, control specification is not performed # nopep8
+#                                                                  and this number is always 0. # nopep8
+# <sample number>  Numerical                                       Sample number from sample sheet # nopep8
+# @NS500773:24:H5VNJAFXX:1:11101:13101:1024 1:N:0:CGATGT           Paired end #1 # nopep8
+# @NS500773:24:H5VNJAFXX:1:11101:13101:1024 2:N:0:CGATGT           Paired end #2 # nopep8
 #  there is one instrument per FASTQ file.
 #  there is one run number per FASTQ file.
 #  there is one flowcell ID per FASTQ file.
 #  there are 4 lanes per FASTQ file (1-4)
 #  there are 144 tiles per FASTQ file (1-21612 in increments of 12)
-#     first three : 111, 112, 113, 114, 115, 116.  211, 212, 213, 214, 215, 216.  Called swaths.
-#     last two are first three combined with 01-12 : 21601, 21602, 21603, 21604, 21605, 21606, 21607, 21608, 21609, 21610, 21611, 21612).  Called tiles
+#     first 3 positiosn are swaths: 111, 112, 113, 114, 115, 116. 211, 212,
+#                                   213, 214, 215, 216
+#     last two are first three combined with 01-12 : 21601, 21602, 21603,
+#                                   21604, 21605, 21606, 21607, 21608, 21609,
+#                                   21610, 21611, 21612).  Called tiles
 #  there are 25880 x_pos.  From 1015 to 26894.
 #  there are 19397 y_pos.  From 1017 to 20413.
-#  there is one read number per FASTQ file: 2 for paired end FASTQ files or 1 otherwise.
+#  there is one read number per FASTQ file: 2 for paired end FASTQ files
+#                                           or 1 otherwise
 #  is filtered is either Y or N - there are no filtered reads in CODIS
 #  control number is 0
 
@@ -343,8 +347,8 @@ def fastq_entry_header(args, fasta_header, barcode):
         c = control
         control = c + ':' + barcode
     # always return both headers and allow downstream to decide what to output
-    return ("@{0}:{1}:{2}:{3}:{4}:{5}:{6} {7}:{8}:{9}".format(args.instrument, '1', args.flow_cell, lane, full_tile, x_pos, y_pos, '1', filter, control),
-            "@{0}:{1}:{2}:{3}:{4}:{5}:{6} {7}:{8}:{9}".format(args.instrument, '1', args.flow_cell, lane, full_tile, x_pos, y_pos, '2', filter, control))
+    return ("@{0}:{1}:{2}:{3}:{4}:{5}:{6} {7}:{8}:{9}".format(args.instrument, '1', args.flow_cell, lane, full_tile, x_pos, y_pos, '1', filter, control),  # nopep8
+            "@{0}:{1}:{2}:{3}:{4}:{5}:{6} {7}:{8}:{9}".format(args.instrument, '1', args.flow_cell, lane, full_tile, x_pos, y_pos, '2', filter, control))  # nopep8
 
 if __name__ == '__main__':
     sys.exit(main(sys.argv))
