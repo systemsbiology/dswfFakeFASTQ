@@ -25,7 +25,7 @@ OPT_DEFAULTS = {
         'prefix':'DSWF', 'instrument':'NS500770', 'flow_cell':'H5VNJAFXX', 'x_min': 1015, 'x_max':26894,
         'y_min': 1017, 'y_max': 20413, 'lane_min': 1, 'lane_max':4, 'quality_type': 'high',
         'swathes': [111,112,113,114,115,116,211,212,213,214,215,216],
-        'tile_min': 01, 'tile_max': 12, 'paired_end': 1, 'is_filtered': ['N'],
+        'tile_min': 1, 'tile_max': 12, 'paired_end': 1, 'is_filtered': ['N'],
         'include_fasta_header_in_fastq_header':1, 'include_barcode_in_fastq_header':1, # DEBUG
         'map_file': 1 #DEBUG
         }
@@ -150,8 +150,8 @@ def buffer_sequence(args,seq,count=None):
         new_seq = ''.join([seq, buffer_seq[:seq_diff]])
     else:
         if args.buffer_both_sides:
-            cnt_both_sides = seq_diff / 2
-            cnt_front = seq_diff % 2
+            cnt_both_sides = int(seq_diff / 2)
+            cnt_front = int(seq_diff % 2)
             end_buffer_seq = args.buffer_seq[:cnt_both_sides] or random_sequence(cnt_both_sides)
             front_buffer_seq = args.buffer_seq[:cnt_both_sides] or random_sequence(cnt_front)
             if cnt_front:
@@ -172,8 +172,8 @@ def truncate_sequence(args,seq,count=None):
         new_seq = seq[0:-seq_diff]
     else:
         if args.truncate_both_sides:
-            cnt_both_sides = seq_diff/2
-            cnt_front = seq_diff % 2
+            cnt_both_sides = int(seq_diff/2)
+            cnt_front = int(seq_diff % 2)
             new_seq = seq[cnt_both_sides:-cnt_both_sides]
             if cnt_front:
                 new_seq = seq[cnt_both_sides+cnt_front:-cnt_both_sides]
