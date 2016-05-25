@@ -55,16 +55,16 @@ class FakeFASTQTest(unittest.TestCase):
         #print("Testing that fastq_quality high works...")
         qual = makeFakeFASTQ.fastq_quality(self.args,10)
         avg = avg_qual(qual)
-        self.assertGreaterEqual(avg, 35, "qual quality {0} is not greater than or equal to 35".format(avg))
+        self.assertTrue(avg >= 35, "qual quality {0} is not greater than or equal to 35".format(avg))
 
     def test_fastq_quality_medium(self):
         #print("Testing that fastq_quality medium works...")
         args = Namespace(quality_type='medium')
         qual = makeFakeFASTQ.fastq_quality(args,10)
         avg = avg_qual(qual)
-        self.assertLessEqual(avg, 30, "qual quality average {0} is less than\
+        self.assertTrue(avg <= 30, "qual quality average {0} is less than\
                 30".format(avg))
-        self.assertGreaterEqual(avg, 23, "qual quality average {0} is not \
+        self.assertTrue(avg >= 23, "qual quality average {0} is not \
                 greater than or equal to 23".format(avg))
 
     def test_fastq_quality_low(self):
@@ -72,9 +72,9 @@ class FakeFASTQTest(unittest.TestCase):
         args = Namespace(quality_type='low')
         qual = makeFakeFASTQ.fastq_quality(args,10)
         avg = avg_qual(qual)
-        self.assertLessEqual(avg, 15, "qual quality average {0} is less than\
+        self.assertTrue(avg <= 15, "qual quality average {0} is less than\
                 15".format(avg))
-        self.assertGreaterEqual(avg, 3, "qual quality average {0} is not \
+        self.assertTrue(avg >= 3, "qual quality average {0} is not \
                 greater than or equal to 3".format(avg))
 
     def test_fastq_high_quality_letters(self):
