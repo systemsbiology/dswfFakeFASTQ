@@ -4,8 +4,8 @@ import re
 from argparse import Namespace
 
 def avg_qual(seq):
-    qual_array = map(lambda x: ord(x) - 33, list(seq))
-    avg = (sum(map(int, qual_array)))/len(qual_array)
+    qual_array = list(map(lambda x: ord(x) - 33, list(seq)))
+    avg = (sum(map(int, qual_array)) / len(qual_array))
     return avg
 
 class FakeFASTQTest(unittest.TestCase):
