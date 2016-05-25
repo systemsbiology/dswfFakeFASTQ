@@ -55,16 +55,16 @@ class FakeFASTQTest(unittest.TestCase):
         #print("Testing that fastq_quality high works...")
         qual = makeFakeFASTQ.fastq_quality(self.args,10)
         avg = avg_qual(qual)
-        self.assertGreaterEqual(avg, 35, "qual quality {} is not greater than or equal to 35".format(avg))
+        self.assertGreaterEqual(avg, 35, "qual quality {0} is not greater than or equal to 35".format(avg))
 
     def test_fastq_quality_medium(self):
         #print("Testing that fastq_quality medium works...")
         args = Namespace(quality_type='medium')
         qual = makeFakeFASTQ.fastq_quality(args,10)
         avg = avg_qual(qual)
-        self.assertLessEqual(avg, 30, "qual quality average {} is less than\
+        self.assertLessEqual(avg, 30, "qual quality average {0} is less than\
                 30".format(avg))
-        self.assertGreaterEqual(avg, 23, "qual quality average {} is not \
+        self.assertGreaterEqual(avg, 23, "qual quality average {0} is not \
                 greater than or equal to 23".format(avg))
 
     def test_fastq_quality_low(self):
@@ -72,16 +72,16 @@ class FakeFASTQTest(unittest.TestCase):
         args = Namespace(quality_type='low')
         qual = makeFakeFASTQ.fastq_quality(args,10)
         avg = avg_qual(qual)
-        self.assertLessEqual(avg, 15, "qual quality average {} is less than\
+        self.assertLessEqual(avg, 15, "qual quality average {0} is less than\
                 15".format(avg))
-        self.assertGreaterEqual(avg, 3, "qual quality average {} is not \
+        self.assertGreaterEqual(avg, 3, "qual quality average {0} is not \
                 greater than or equal to 3".format(avg))
 
     def test_fastq_high_quality_letters(self):
         #print("Testing that fastq_quality result contains proper ascii letters...")
         qual = makeFakeFASTQ.fastq_quality(self.args,10)
         reg = re.compile('^[A-J]+$')
-        self.assertTrue(reg.match(qual),"fastq_quality high contains only ascii letters: {}".format(qual))
+        self.assertTrue(reg.match(qual),"fastq_quality high contains only ascii letters: {0}".format(qual))
 
     def test_fastq_low_quality_valid(self):
         #print("Testing that fastq_quality result contains valid values...")
@@ -89,7 +89,7 @@ class FakeFASTQTest(unittest.TestCase):
         args = Namespace(quality_type="low")
         qual = makeFakeFASTQ.fastq_quality(args,10)
         reg = re.compile('^[A-I0-9!\"#\$\%\&\'\(\)\*\+,=\./:;<=>?@-]+$')
-        self.assertTrue(reg.match(qual),"fastq_quality low contains only valid values:{}".format(qual))
+        self.assertTrue(reg.match(qual),"fastq_quality low contains only valid values:{0}".format(qual))
 
     #############################################################################################
 
@@ -107,31 +107,31 @@ class FakeFASTQTest(unittest.TestCase):
         self.args.include_barcode_in_fastq_header = 0
         testHeader, testPaired = makeFakeFASTQ.fastq_entry_header(self.args,self.fasta_header,self.barcode)
         canonical = "@N5V:1:H5N:1:11103:5:8 1:N:0:test1"
-        self.assertEqual(canonical, testHeader, "fastq_entry_header returns proper header with fasta header no > {}".format(testHeader))
+        self.assertEqual(canonical, testHeader, "fastq_entry_header returns proper header with fasta header no > {0}".format(testHeader))
 
     def test_fastq_entry_header_fasta_header_symbol(self):
         self.fasta_header = ">test1"
         self.args.include_barcode_in_fastq_header = 0
         testHeader, testPaired = makeFakeFASTQ.fastq_entry_header(self.args,self.fasta_header,self.barcode)
         canonical = "@N5V:1:H5N:1:11103:5:8 1:N:0:test1"
-        self.assertEqual(canonical, testHeader, "fastq_entry_header returns proper header with fasta header >\ncanonical: {}\ntest:      {}".format(canonical, testHeader))
+        self.assertEqual(canonical, testHeader, "fastq_entry_header returns proper header with fasta header >\ncanonical: {0}\ntest:      {1}".format(canonical, testHeader))
 
     def test_fastq_entry_header_barcode(self):
         self.args.include_fasta_header_in_fastq_header = 0
         testHeader, testPaired = makeFakeFASTQ.fastq_entry_header(self.args,self.fasta_header,self.barcode)
         canonical = "@N5V:1:H5N:1:11103:5:8 1:N:0:ATATAGGACA"
-        self.assertEqual(canonical, testHeader, "fastq_entry_header returns proper header with barcode canonical: {} test:".format(canonical,testHeader))
+        self.assertEqual(canonical, testHeader, "fastq_entry_header returns proper header with barcode canonical: {0} test:".format(canonical,testHeader))
 
     def test_fastq_entry_header_fasta_header_and_barcode(self):
         testHeader, testPaired = makeFakeFASTQ.fastq_entry_header(self.args,self.fasta_header,self.barcode)
         canonical = "@N5V:1:H5N:1:11103:5:8 1:N:0:test1:ATATAGGACA"
-        self.assertEqual(canonical, testHeader, "fastq_entry_header returns proper header with fasta header and barcode {}".format(testHeader))
+        self.assertEqual(canonical, testHeader, "fastq_entry_header returns proper header with fasta header and barcode {0}".format(testHeader))
 
     def test_fastq_entry_header_fasta_header_symbol_and_barcode(self):
         self.fasta_header = ">test1"
         testHeader,testPaired = makeFakeFASTQ.fastq_entry_header(self.args,self.fasta_header,self.barcode)
         canonical = "@N5V:1:H5N:1:11103:5:8 1:N:0:test1:ATATAGGACA"
-        self.assertEqual(canonical, testHeader, "fastq_entry_header returns proper header with fasta header with > and barcode {}".format(testHeader))
+        self.assertEqual(canonical, testHeader, "fastq_entry_header returns proper header with fasta header with > and barcode {0}".format(testHeader))
 
     #############################################################################################
 
@@ -140,14 +140,14 @@ class FakeFASTQTest(unittest.TestCase):
         # defaults to buffer_end
         self.args.buffer_seq = self.buffer_seq
         testSeq = makeFakeFASTQ.buffer_sequence(self.args,self.seq)
-        self.assertEqual(len(testSeq),self.args.read_length,"buffer_sequence does nothing when it should args: {} test:{}".format(self.args.read_length, len(testSeq)))
+        self.assertEqual(len(testSeq),self.args.read_length,"buffer_sequence does nothing when it should args: {0} test:{1}".format(self.args.read_length, len(testSeq)))
 
     def test_buffer_sequence_end(self):
         # defaults to buffer_end, should add 5 G's to end of self.seq
         self.args.read_length = 30
         self.args.buffer_seq = self.buffer_seq
         testSeq = makeFakeFASTQ.buffer_sequence(self.args,self.seq)
-        self.assertEqual(len(testSeq),self.args.read_length,"buffer sequence outputs correct read length args: {} test:{}".format(self.args.read_length, len(testSeq)))
+        self.assertEqual(len(testSeq),self.args.read_length,"buffer sequence outputs correct read length args: {0} test:{1}".format(self.args.read_length, len(testSeq)))
         canonical = "GCTAATACGAATTGACCCGGATAGAGGGGG"
         self.assertEqual(canonical, testSeq, "buffer sequence outputs correct read sequence".format(testSeq))
 
@@ -157,7 +157,7 @@ class FakeFASTQTest(unittest.TestCase):
         self.args.buffer_both_sides = 1
         self.args.buffer_seq = self.buffer_seq
         testSeq = makeFakeFASTQ.buffer_sequence(self.args,self.seq)
-        self.assertEqual(len(testSeq),self.args.read_length,"buffer_sequence does nothing when it should args: {} test:{}".format(self.args.read_length, len(testSeq)))
+        self.assertEqual(len(testSeq),self.args.read_length,"buffer_sequence does nothing when it should args: {0} test:{1}".format(self.args.read_length, len(testSeq)))
 
     def test_buffer_sequence_both_sides_odd(self):
         self.args.read_length = 30 # seq is 25 bp, if updated then canonical needs updating too
@@ -165,9 +165,9 @@ class FakeFASTQTest(unittest.TestCase):
         self.args.buffer_both_sides = 1
         self.args.buffer_seq = self.buffer_seq
         testSeq = makeFakeFASTQ.buffer_sequence(self.args,self.seq)
-        self.assertEqual(len(testSeq),self.args.read_length,"buffer_sequence proper length with odd addition\nLengths: args: {} test:{}\nSeqs:\ntest: {}\n seq: {}".format(self.args.read_length, len(testSeq), testSeq, self.seq))
+        self.assertEqual(len(testSeq),self.args.read_length,"buffer_sequence proper length with odd addition\nLengths: args: {0} test:{1}\nSeqs:\ntest: {2}\n seq: {3}".format(self.args.read_length, len(testSeq), testSeq, self.seq))
         canonical = "GGGGCTAATACGAATTGACCCGGATAGAGG"
-        self.assertEqual(testSeq,canonical,"buffer_sequence sequence is canonical\nLengths: args: {} test:{}\nSeqs:\ntest: {}\n seq: {}".format(self.args.read_length, len(testSeq), testSeq, canonical))
+        self.assertEqual(testSeq,canonical,"buffer_sequence sequence is canonical\nLengths: args: {0} test:{1}\nSeqs:\ntest: {2}\n seq: {3}".format(self.args.read_length, len(testSeq), testSeq, canonical))
 
     def test_buffer_sequence_both_sides_even(self):
         self.args.read_length = 29 # seq is 25 bp
@@ -175,9 +175,9 @@ class FakeFASTQTest(unittest.TestCase):
         self.args.buffer_both_sides = 1
         self.args.buffer_seq = self.buffer_seq
         testSeq = makeFakeFASTQ.buffer_sequence(self.args,self.seq)
-        self.assertEqual(len(testSeq),self.args.read_length,"buffer_sequence proper length with even addition\nLengths: args: {} test:{}\nSeqs:\ntest: {}\n seq: {}".format(self.args.read_length, len(testSeq), testSeq, self.seq))
+        self.assertEqual(len(testSeq),self.args.read_length,"buffer_sequence proper length with even addition\nLengths: args: {0} test:{1}\nSeqs:\ntest: {2}\n seq: {3}".format(self.args.read_length, len(testSeq), testSeq, self.seq))
         canonical = "GGGCTAATACGAATTGACCCGGATAGAGG"
-        self.assertEqual(testSeq,canonical,"buffer_sequence sequence is canonical\nLengths: args: {} test:{}\nSeqs:\ntest: {}\n seq: {}".format(self.args.read_length, len(testSeq), testSeq, canonical))
+        self.assertEqual(testSeq,canonical,"buffer_sequence sequence is canonical\nLengths: args: {0} test:{1}\nSeqs:\ntest: {2}\n seq: {3}".format(self.args.read_length, len(testSeq), testSeq, canonical))
 
 #############################################################################################
 
@@ -185,40 +185,40 @@ class FakeFASTQTest(unittest.TestCase):
     def test_truncate_sequence_end_nothing(self):
         # defaults to truncate_end
         testSeq = makeFakeFASTQ.truncate_sequence(self.args,self.seq)
-        self.assertEqual(len(testSeq),self.args.read_length,"truncate_sequence does nothing when it should args: {} test:{}".format(self.args.read_length, len(testSeq)))
+        self.assertEqual(len(testSeq),self.args.read_length,"truncate_sequence does nothing when it should args: {0} test:{1}".format(self.args.read_length, len(testSeq)))
 
     def test_truncate_sequence_end(self):
         # defaults to truncate_end, should remove 5 BP from the end of self.seq
         self.args.read_length = 20
         canonical = "GCTAATACGAATTGACCCGG"
         testSeq = makeFakeFASTQ.truncate_sequence(self.args,self.seq)
-        self.assertEqual(len(testSeq),self.args.read_length,"truncate sequence outputs correct read length.\nLengths: args: {} test:{}\nSeqs:\ncanonical: {}\n     test: {}".format(self.args.read_length, len(testSeq), canonical, testSeq))
-        self.assertEqual(canonical, testSeq, "truncate sequence outputs correct read sequence\ncanonical: {}\n     test: {}".format(canonical,testSeq))
+        self.assertEqual(len(testSeq),self.args.read_length,"truncate sequence outputs correct read length.\nLengths: args: {0} test:{1}\nSeqs:\ncanonical: {2}\n     test: {3}".format(self.args.read_length, len(testSeq), canonical, testSeq))
+        self.assertEqual(canonical, testSeq, "truncate sequence outputs correct read sequence\ncanonical: {0}\n     test: {1}".format(canonical,testSeq))
 
     def test_truncate_sequence_both_sides_nothing(self):
         # with truncate_both_sides set, it shouldn't do anything when the read length is correct
         self.args.truncate_end = 0
         self.args.truncate_both_sides = 1
         testSeq = makeFakeFASTQ.truncate_sequence(self.args,self.seq)
-        self.assertEqual(len(testSeq),self.args.read_length,"truncate_sequence does nothing when it should args: {} test:{}".format(self.args.read_length, len(testSeq)))
+        self.assertEqual(len(testSeq),self.args.read_length,"truncate_sequence does nothing when it should args: {0} test:{1}".format(self.args.read_length, len(testSeq)))
 
     def test_truncate_sequence_both_sides_odd(self):
         self.args.read_length = 20 # seq is 25 bp, if updated then canonical needs updating too
         self.args.truncate_end = 0
         self.args.truncate_both_sides = 1
         testSeq = makeFakeFASTQ.truncate_sequence(self.args,self.seq)
-        self.assertEqual(len(testSeq),self.args.read_length,"truncate_sequence proper length with odd addition\nLengths: args: {} test:{}\nSeqs:\ntest: {}\n seq: {}".format(self.args.read_length, len(testSeq), testSeq, self.seq))
+        self.assertEqual(len(testSeq),self.args.read_length,"truncate_sequence proper length with odd addition\nLengths: args: {0} test:{1}\nSeqs:\ntest: {2}\n seq: {3}".format(self.args.read_length, len(testSeq), testSeq, self.seq))
         canonical = "AATACGAATTGACCCGGATA"
-        self.assertEqual(testSeq,canonical,"truncate_sequence sequence is canonical\nLengths: args: {} test:{}\nSeqs:\ntest: {}\n seq: {}".format(self.args.read_length, len(testSeq), testSeq, canonical))
+        self.assertEqual(testSeq,canonical,"truncate_sequence sequence is canonical\nLengths: args: {0} test:{1}\nSeqs:\ntest: {2}\n seq: {3}".format(self.args.read_length, len(testSeq), testSeq, canonical))
 
     def test_truncate_sequence_both_sides_even(self):
         self.args.read_length = 21 # seq is 25 bp
         self.args.truncate_end = 0
         self.args.truncate_both_sides = 1
         testSeq = makeFakeFASTQ.truncate_sequence(self.args,self.seq)
-        self.assertEqual(len(testSeq),self.args.read_length,"truncate_sequence proper length with even addition\nLengths: args: {} test:{}\nSeqs:\ntest: {}\n seq: {}".format(self.args.read_length, len(testSeq), testSeq, self.seq))
+        self.assertEqual(len(testSeq),self.args.read_length,"truncate_sequence proper length with even addition\nLengths: args: {0} test:{1}\nSeqs:\ntest: {2}\n seq: {3}".format(self.args.read_length, len(testSeq), testSeq, self.seq))
         canonical = "TAATACGAATTGACCCGGATA"
-        self.assertEqual(testSeq,canonical,"truncate_sequence sequence is canonical\nLengths: args: {} test:{}\nSeqs:\ntest: {}\n seq: {}".format(self.args.read_length, len(testSeq), testSeq, canonical))
+        self.assertEqual(testSeq,canonical,"truncate_sequence sequence is canonical\nLengths: args: {0} test:{1}\nSeqs:\ntest: {2}\n seq: {3}".format(self.args.read_length, len(testSeq), testSeq, canonical))
 
     #############################################################################################
 
@@ -226,16 +226,16 @@ class FakeFASTQTest(unittest.TestCase):
     def test_make_ds_read_truncate(self):
         testRead = makeFakeFASTQ.make_ds_read(self.args,self.seq,self.barcode)
         canonical = "ATATAGGACATGCTAATACGAATTG"
-        self.assertEqual(len(testRead), self.args.read_length, "make_ds_read read length is proper. canonical: {} test: {}".format(self.args.read_length, len(testRead)))
-        self.assertEqual(testRead,canonical,"make_ds_read sequence is canonical\ncanonical: {}\n     test: {}".format(canonical, testRead))
+        self.assertEqual(len(testRead), self.args.read_length, "make_ds_read read length is proper. canonical: {0} test: {1}".format(self.args.read_length, len(testRead)))
+        self.assertEqual(testRead,canonical,"make_ds_read sequence is canonical\ncanonical: {0}\n     test: {1}".format(canonical, testRead))
 
     def test_make_ds_read_equal(self):
         # test exactly equal read_length and barcode+seq+spacer
         self.args.read_length = 36
         testRead = makeFakeFASTQ.make_ds_read(self.args,self.seq,self.barcode)
         canonical = "ATATAGGACATGCTAATACGAATTGACCCGGATAGA"
-        self.assertEqual(len(testRead), self.args.read_length, "make_ds_read read length is proper. canonical: {} test: {}".format(self.args.read_length, len(testRead)))
-        self.assertEqual(testRead,canonical,"make_ds_read sequence is canonical\ncanonical: {}\n     test: {}".format(canonical, testRead))
+        self.assertEqual(len(testRead), self.args.read_length, "make_ds_read read length is proper. canonical: {0} test: {1}".format(self.args.read_length, len(testRead)))
+        self.assertEqual(testRead,canonical,"make_ds_read sequence is canonical\ncanonical: {0}\n     test: {1}".format(canonical, testRead))
 
     def test_make_ds_read_buffer(self):
         # test read_length > barcode+seq+spacer
@@ -243,8 +243,8 @@ class FakeFASTQTest(unittest.TestCase):
         self.args.buffer_seq = self.buffer_seq
         testRead = makeFakeFASTQ.make_ds_read(self.args,self.seq,self.barcode)
         canonical = "ATATAGGACATGCTAATACGAATTGACCCGGATAGAGGGG"
-        self.assertEqual(len(testRead), self.args.read_length, "make_ds_read read length is proper. args: {} canonical: {} test: {}\ncanonical: {}\n     test: {}".format(self.args.read_length, len(canonical), len(testRead), canonical, testRead))
-        self.assertEqual(testRead,canonical,"make_ds_read sequence is canonical\ncanonical: {}\n     test: {}".format(canonical, testRead))
+        self.assertEqual(len(testRead), self.args.read_length, "make_ds_read read length is proper. args: {0} canonical: {1} test: {2}\ncanonical: {3}\n     test: {4}".format(self.args.read_length, len(canonical), len(testRead), canonical, testRead))
+        self.assertEqual(testRead,canonical,"make_ds_read sequence is canonical\ncanonical: {0}\n     test: {1}".format(canonical, testRead))
 
 
 
@@ -258,8 +258,8 @@ class FakeFASTQTest(unittest.TestCase):
         (testFam1, testFam2) = makeFakeFASTQ.make_family(self.fasta_header, self.seq, self.args)
         canonical1 = ['@N5V:1:H5N:1:11103:5:8 1:N:0:test1:ATATAGGACA', 'ATATAGGACATGCTAATACGAATTG', '+', 'HFDEGEFHFIFDGIEHIFGEJJJHG']
         canonical2 = ['@N5V:1:H5N:1:11103:5:8 2:N:0:test1:ATATAGGACA', 'ATATAGGACATGCTAATACGAATTG', '+', 'HFDEGEFHFIFDGIEHIFGEJJJHG']
-        self.assertEqual(' '.join(canonical1), ' '.join(testFam1), "make_family returns proper values for family 1.\ncanonical: {}\n     test: {} ".format(canonical1, testFam1))
-        self.assertEqual(canonical2, testFam2, "make_family returns proper values for family 2.\ncanonical: {}\n     test: {} ".format(canonical2, testFam2))
+        self.assertEqual(' '.join(canonical1), ' '.join(testFam1), "make_family returns proper values for family 1.\ncanonical: {0}\n     test: {1} ".format(canonical1, testFam1))
+        self.assertEqual(canonical2, testFam2, "make_family returns proper values for family 2.\ncanonical: {0}\n     test: {1} ".format(canonical2, testFam2))
 
     def test_make_family_equal(self):
         self.args.quality = self.full_qual
@@ -268,8 +268,8 @@ class FakeFASTQTest(unittest.TestCase):
         (testFam1, testFam2) = makeFakeFASTQ.make_family(self.fasta_header, self.seq, self.args)
         canonical1 = ['@N5V:1:H5N:1:11103:5:8 1:N:0:test1:ATATAGGACA', 'ATATAGGACATGCTAATACGAATTGACCCGGATAGA', '+', 'HFDEGEFHFIFDGIEHIFGEJJJHGEFHFIFDGIE']
         canonical2 = ['@N5V:1:H5N:1:11103:5:8 2:N:0:test1:ATATAGGACA', 'ATATAGGACATGCTAATACGAATTGACCCGGATAGA', '+', 'HFDEGEFHFIFDGIEHIFGEJJJHGEFHFIFDGIE']
-        self.assertEqual(' '.join(canonical1), ' '.join(testFam1), "make_family returns proper values for family 1.\ncanonical: {}\n     test: {} ".format(canonical1, testFam1))
-        self.assertEqual(canonical2, testFam2, "make_family returns proper values for family 2.\ncanonical: {}\n     test: {} ".format(canonical2, testFam2))
+        self.assertEqual(' '.join(canonical1), ' '.join(testFam1), "make_family returns proper values for family 1.\ncanonical: {0}\n     test: {1} ".format(canonical1, testFam1))
+        self.assertEqual(canonical2, testFam2, "make_family returns proper values for family 2.\ncanonical: {0}\n     test: {1} ".format(canonical2, testFam2))
 
     def test_make_family_buffer(self):
         self.args.quality = self.full_qual+'GGGG'
@@ -279,8 +279,8 @@ class FakeFASTQTest(unittest.TestCase):
         (testFam1, testFam2) = makeFakeFASTQ.make_family(self.fasta_header, self.seq, self.args)
         canonical1 = ['@N5V:1:H5N:1:11103:5:8 1:N:0:test1:ATATAGGACA', 'ATATAGGACATGCTAATACGAATTGACCCGGATAGAGGGG', '+', 'HFDEGEFHFIFDGIEHIFGEJJJHGEFHFIFDGIEGGGG']
         canonical2 = ['@N5V:1:H5N:1:11103:5:8 2:N:0:test1:ATATAGGACA', 'ATATAGGACATGCTAATACGAATTGACCCGGATAGAGGGG', '+', 'HFDEGEFHFIFDGIEHIFGEJJJHGEFHFIFDGIEGGGG']
-        self.assertEqual(' '.join(canonical1), ' '.join(testFam1), "make_family returns proper values for family 1.\ncanonical: {}\n     test: {} ".format(canonical1, testFam1))
-        self.assertEqual(canonical2, testFam2, "make_family returns proper values for family 2.\ncanonical: {}\n     test: {} ".format(canonical2, testFam2))
+        self.assertEqual(' '.join(canonical1), ' '.join(testFam1), "make_family returns proper values for family 1.\ncanonical: {0}\n     test: {1} ".format(canonical1, testFam1))
+        self.assertEqual(canonical2, testFam2, "make_family returns proper values for family 2.\ncanonical: {0}\n     test: {1} ".format(canonical2, testFam2))
 
 
     #############################################################################################
