@@ -285,13 +285,11 @@ def fastq_quality(args, seq_len):
 
 
 def random_sequence(length):
-    counter = 0
     bases = ['A', 'G', 'T', 'C']
-    random_sequence = ""
-    while (counter < length):
-        random_sequence += bases[randint(0, 3)]
-        counter += 1
-    return random_sequence
+    random_sequence = ['0']*length
+    for i in range(length):
+        random_sequence[i] = bases[randint(0,3)]
+    return ''.join(random_sequence)
 
 # make a sequence id header
 # @<instrument>:<run number>:<flowcell ID>:<lane>:<tile>:<x-pos>:<y-pos> <read>:<is filtered>:<control number>:<sample number> # nopep8
