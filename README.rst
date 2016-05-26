@@ -1,6 +1,9 @@
 |Build Status|
 
-# dswfFakeFASTQ
+=====
+**dswfFakeFASTQ**
+=====
+
 Generate a FASTQ file for testing the Duplex-Sequencing workflow
 
 Creates two paired-end FASTQ files or one FASTQ file for testing the Duplex-Sequencing workflow.
