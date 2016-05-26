@@ -164,6 +164,7 @@ def main(argv):
         args.map_file.close()
     seq1_file.close()
     seq2_file.close()
+    fasta.close()
     print("Finished generating FASTQ files")
 
 # add random sequence to the FASTA line to reach read length
