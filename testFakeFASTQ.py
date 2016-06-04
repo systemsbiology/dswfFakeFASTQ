@@ -21,7 +21,7 @@ class FakeFASTQTest(unittest.TestCase):
         self.args = Namespace(x_min=5,x_max=5,y_min=8,y_max=8,
                               lane_min=1,lane_max=1,swathes=[111],
                               buffer_end=1, buffer_both_sides=0, truncate_end=1, truncate_both_sides=0,
-                              tile_min=3,tile_max=3,is_filtered=['N'],
+                              tile_min=3,tile_max=3,is_filtered=['N'],phred_type='phred33',
                               include_fasta_header_in_fastq_header=1,include_barcode_in_fastq_header=1,
                               paired_end=0,instrument="N5V",flow_cell="H5N",quality_type="high",
                               read_length=25, spacer_length=1, max_num_reads=1, max_num_families=1,
@@ -53,13 +53,13 @@ class FakeFASTQTest(unittest.TestCase):
 
     def test_fastq_quality_high(self):
         #print("Testing that fastq_quality high works...")
-        qual = makeFakeFASTQ.fastq_quality(self.args,10)
+        qual = makeFakeFASTQ.fastq_quality(self.args,20)
         avg = avg_qual(qual)
         self.assertTrue(avg >= 35, "qual quality {0} is not greater than or equal to 35".format(avg))
 
     def test_fastq_quality_medium(self):
         #print("Testing that fastq_quality medium works...")
-        args = Namespace(quality_type='medium')
+        args = Namespace(quality_type='medium', phred_type='phred33')
         qual = makeFakeFASTQ.fastq_quality(args,10)
         avg = avg_qual(qual)
         self.assertTrue(avg <= 30, "qual quality average {0} is less than\
@@ -69,7 +69,7 @@ class FakeFASTQTest(unittest.TestCase):
 
     def test_fastq_quality_low(self):
         #print("Testing that fastq_quality low works...")
-        args = Namespace(quality_type='low')
+        args = Namespace(quality_type='low', phred_type='phred33')
         qual = makeFakeFASTQ.fastq_quality(args,10)
         avg = avg_qual(qual)
         self.assertTrue(avg <= 15, "qual quality average {0} is less than\
@@ -80,13 +80,13 @@ class FakeFASTQTest(unittest.TestCase):
     def test_fastq_high_quality_letters(self):
         #print("Testing that fastq_quality result contains proper ascii letters...")
         qual = makeFakeFASTQ.fastq_quality(self.args,10)
-        reg = re.compile('^[A-J]+$')
+        reg = re.compile('^[A-J:0-9]+$')
         self.assertTrue(reg.match(qual),"fastq_quality high contains only ascii letters: {0}".format(qual))
 
     def test_fastq_low_quality_valid(self):
         #print("Testing that fastq_quality result contains valid values...")
         # valid  !"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHI
-        args = Namespace(quality_type="low")
+        args = Namespace(quality_type="low", phred_type='phred33')
         qual = makeFakeFASTQ.fastq_quality(args,10)
         reg = re.compile('^[A-I0-9!\"#\$\%\&\'\(\)\*\+,=\./:;<=>?@-]+$')
         self.assertTrue(reg.match(qual),"fastq_quality low contains only valid values:{0}".format(qual))
@@ -222,9 +222,9 @@ class FakeFASTQTest(unittest.TestCase):
 
     #############################################################################################
 
-    #TEST def make_ds_read(args, seq, barcode)
+    #TEST def make_ds_read(args, seq, barcode, direction)
     def test_make_ds_read_truncate(self):
-        testRead = makeFakeFASTQ.make_ds_read(self.args,self.seq,self.barcode)
+        testRead = makeFakeFASTQ.make_ds_read(self.args,self.seq,self.barcode, 'forward')
         canonical = "ATATAGGACATGCTAATACGAATTG"
         self.assertEqual(len(testRead), self.args.read_length, "make_ds_read read length is proper. canonical: {0} test: {1}".format(self.args.read_length, len(testRead)))
         self.assertEqual(testRead,canonical,"make_ds_read sequence is canonical\ncanonical: {0}\n     test: {1}".format(canonical, testRead))
@@ -232,7 +232,7 @@ class FakeFASTQTest(unittest.TestCase):
     def test_make_ds_read_equal(self):
         # test exactly equal read_length and barcode+seq+spacer
         self.args.read_length = 36
-        testRead = makeFakeFASTQ.make_ds_read(self.args,self.seq,self.barcode)
+        testRead = makeFakeFASTQ.make_ds_read(self.args,self.seq,self.barcode, 'forward')
         canonical = "ATATAGGACATGCTAATACGAATTGACCCGGATAGA"
         self.assertEqual(len(testRead), self.args.read_length, "make_ds_read read length is proper. canonical: {0} test: {1}".format(self.args.read_length, len(testRead)))
         self.assertEqual(testRead,canonical,"make_ds_read sequence is canonical\ncanonical: {0}\n     test: {1}".format(canonical, testRead))
@@ -241,8 +241,31 @@ class FakeFASTQTest(unittest.TestCase):
         # test read_length > barcode+seq+spacer
         self.args.read_length = 40
         self.args.buffer_seq = self.buffer_seq
-        testRead = makeFakeFASTQ.make_ds_read(self.args,self.seq,self.barcode)
+        testRead = makeFakeFASTQ.make_ds_read(self.args,self.seq,self.barcode,'forward')
         canonical = "ATATAGGACATGCTAATACGAATTGACCCGGATAGAGGGG"
+        self.assertEqual(len(testRead), self.args.read_length, "make_ds_read read length is proper. args: {0} canonical: {1} test: {2}\ncanonical: {3}\n     test: {4}".format(self.args.read_length, len(canonical), len(testRead), canonical, testRead))
+        self.assertEqual(testRead,canonical,"make_ds_read sequence is canonical\ncanonical: {0}\n     test: {1}".format(canonical, testRead))
+
+    def test_make_ds_read_reverse_truncate(self):
+        testRead = makeFakeFASTQ.make_ds_read(self.args,self.seq,self.barcode,'reverse')
+	canonical = "ATATAGGACATGTTAAGCATAATCG"
+        self.assertEqual(len(testRead), self.args.read_length, "make_ds_read read length is proper. canonical: {0} test: {1}".format(self.args.read_length, len(testRead)))
+        self.assertEqual(testRead,canonical,"make_ds_read sequence is canonical\ncanonical: {0}\n     test: {1}".format(canonical, testRead))
+
+    def test_make_ds_read_reverse_equal(self):
+        # test exactly equal read_length and barcode+seq+spacer
+        self.args.read_length = 36
+        testRead = makeFakeFASTQ.make_ds_read(self.args,self.seq,self.barcode,'reverse')
+	canonical = "ATATAGGACATAGATAGGCCCAGTTAAGCATAATCG"
+        self.assertEqual(len(testRead), self.args.read_length, "make_ds_read read length is proper. canonical: {0} test: {1}".format(self.args.read_length, len(testRead)))
+        self.assertEqual(testRead,canonical,"make_ds_read sequence is canonical\ncanonical: {0}\n     test: {1}".format(canonical, testRead))
+
+    def test_make_ds_read_reverse_buffer(self):
+        # test read_length > barcode+seq+spacer
+        self.args.read_length = 40
+        self.args.buffer_seq = self.buffer_seq
+        testRead = makeFakeFASTQ.make_ds_read(self.args,self.seq,self.barcode, 'reverse')
+	canonical = "ATATAGGACATGGGGAGATAGGCCCAGTTAAGCATAATCG"
         self.assertEqual(len(testRead), self.args.read_length, "make_ds_read read length is proper. args: {0} canonical: {1} test: {2}\ncanonical: {3}\n     test: {4}".format(self.args.read_length, len(canonical), len(testRead), canonical, testRead))
         self.assertEqual(testRead,canonical,"make_ds_read sequence is canonical\ncanonical: {0}\n     test: {1}".format(canonical, testRead))
 
