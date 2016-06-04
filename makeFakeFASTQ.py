@@ -6,16 +6,6 @@ import argparse
 import gzip
 from random import randint, sample
 
-# Last updated: 2016/05/12
-# 2016/05/11: Fixed bug with newlines between families.
-#             Added --max_num_families functionality.
-#             Added debug options to include FASTA header and barcode in
-#               FASTQ header.
-# 2016/05/12: Fixed formatting bugs in code
-# 2016/05/13: Added map_file for debug.  Fixed bug in fastq_quality that
-#               was making it n-1
-# VERSION: 0.04
-
 # To generate duplex sequencing simulated data, we start with N number of
 # molecules of double stranded DNA.  These are represented by the number of
 # entries in the FASTA file that feeds this program (N). We then generate
@@ -30,7 +20,7 @@ OPT_DEFAULTS = {
     'buffer_end': 1, 'truncate_both_sides': 0, 'truncate_end': 1,
     'prefix': 'DSWF', 'instrument': 'NS500770', 'flow_cell': 'H5VNJAFXX',
     'x_min': 1015, 'x_max': 26894, 'y_min': 1017, 'y_max': 20413,
-    'lane_min': 1, 'lane_max': 4, 'quality_type': 'high',
+    'lane_min': 1, 'lane_max': 4, 'quality_type': 'high', 'phred_type': 'phred33',
     'swathes': [111, 112, 113, 114, 115, 116, 211, 212, 213, 214, 215, 216],
     'tile_min': 1, 'tile_max': 12, 'paired_end': 1, 'is_filtered': ['N'],
     'include_fasta_header_in_fastq_header': 1,
@@ -39,7 +29,7 @@ OPT_DEFAULTS = {
 }
 DESCRIPTION = """Create FASTQ data."""
 
-QUAL_SET = {'high': [35, 41], 'medium': [23, 30], 'low': [3, 15]}
+QUAL_SET = {'high': [35, 40], 'medium': [23, 30], 'low': [3, 15]}
 
 
 def main(argv):
@@ -87,9 +77,12 @@ def main(argv):
                         help='Minimum lane number for FASTQ read')
     parser.add_argument('--lane_max', type=int, required=False,
                         help='Maximum lane number for FASTQ read')
-    parser.add_argument('--quality_type', '-q', type=str, required=False,
+    parser.add_argument('--quality_type', '-qt', type=str, required=False,
                         help="The quality of sequence: high, medium, low",
                         choices=["high", "medium", "low"])
+    parser.add_argument('--phred_type', '-pt', type=str, required=False,
+                        help="The quality type to create: phred33 or phred64",
+                        choices=["phred33", "phred64"])
     parser.add_argument('--swathes', nargs='+', type=int,
                         help='The swathes on Illumina chip for FASTQ record\
                         Default: [111, 112, 113, 114, 115, 116, 211, 212,\
@@ -218,17 +211,19 @@ def truncate_sequence(args, seq, count=None):
     return new_seq
 
 
-def make_ds_read(args, seq, barcode):
+def make_ds_read(args, seq, barcode, direction):
     ds_spacer = 'T' * args.spacer_length
     ds_length = len(ds_spacer) + len(barcode)
     total_length = len(seq) + ds_length
-    if total_length == args.read_length:
-        return "{0}{1}{2}".format(barcode, ds_spacer, seq)
+    ds_seq = seq
     if (total_length > args.read_length):
         ds_seq = truncate_sequence(args, seq, total_length - args.read_length)
     if (total_length < args.read_length):
         ds_seq = buffer_sequence(args, seq, args.read_length - total_length)
-    read = "{0}{1}{2}".format(barcode, ds_spacer, ds_seq)
+    if direction == 'reverse':
+    	read = "{0}{1}{2}".format(barcode, ds_spacer, ds_seq[::-1])
+    else:
+    	read = "{0}{1}{2}".format(barcode, ds_spacer, ds_seq)
     return read
 
 # FASTQ is:
@@ -246,7 +241,7 @@ def make_family(header, seq, args):
     barcode = args.barcode if args.barcode else random_sequence(
         args.barcode_length)
     (fastq_header, paired_header) = fastq_entry_header(args, header, barcode)
-    ds_read = make_ds_read(args, seq, barcode)
+    ds_read = make_ds_read(args, seq, barcode, 'forward')
     num_reads = randint(1, args.max_num_reads)
     if args.map_file:
         args.map_file.write("{0}	{1}	{2}	{3}\n".format(
@@ -269,15 +264,25 @@ def make_family(header, seq, args):
     return family, family_seq2
 
 
-# quality scores are PHRED scores from 0-41 converted into a character +33
+# quality scores are PHRED scores from 0-40 converted into a character +33
 def fastq_quality(args, seq_len):
     qualities = []
     for i in range(1, seq_len + 1):
         qualities.append(randint(QUAL_SET[args.quality_type][
                          0], QUAL_SET[args.quality_type][1]))
-    # avg_qual = sum(qualities) / len(qualities)
-    # print("avg_qual ",avg_qual)
-    qual_string = map(lambda x: chr(x + 33), qualities)
+    # if we don't have a dip in quality at the beginning then downstream
+    # programs detect the quality string incorrectly
+    dip_start = seq_len * .1
+    qualities[int(dip_start)] = 22
+    qualities[int(dip_start+1)] = 25
+    #print(qualities)
+    #avg_qual = sum(qualities) / len(qualities)
+    #print("avg_qual ",avg_qual)
+    if args.phred_type == "phred33":
+        qual_string = map(lambda x: chr(x + 33), qualities)
+    if args.phred_type == "phred64":
+        qual_string = map(lambda x: chr(x + 64), qualities)
+    #print("qual string ",qual_string);
     return(''.join(qual_string))
 
 # base composition is an array of each nucleotide
