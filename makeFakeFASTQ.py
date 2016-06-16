@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+ #!/usr/bin/env python
 import os
 import sys
 import time
@@ -210,6 +210,10 @@ def truncate_sequence(args, seq, count=None):
                 new_seq = seq[cnt_both_sides + cnt_front:-cnt_both_sides]
     return new_seq
 
+def complement(seq):
+    seq_defs = "ATGCNTACGNatgcntacgn"
+    seq_dict = { seq_defs[i]:seq_defs[i+5] for i in range(20) if i < 5 or 10<=i<15 }
+    return ''.join(seq_dict[base] for base in seq)
 
 def make_ds_read(args, seq, barcode, direction):
     ds_spacer = 'T' * args.spacer_length
@@ -221,9 +225,13 @@ def make_ds_read(args, seq, barcode, direction):
     if (total_length < args.read_length):
         ds_seq = buffer_sequence(args, seq, args.read_length - total_length)
     if direction == 'reverse':
-    	read = "{0}{1}{2}".format(barcode, ds_spacer, ds_seq[::-1])
+    	read = "{0}{1}{2}".format(barcode, ds_spacer, complement(ds_seq))
+	print(" ds_seq {} to complement {}".format(ds_seq, complement(ds_seq)))
+	print("read {}".format(read))
     else:
     	read = "{0}{1}{2}".format(barcode, ds_spacer, ds_seq)
+	print(" ds_seq {}".format(ds_seq))
+	print("read {}".format(read))
     return read
 
 # FASTQ is:
@@ -242,6 +250,7 @@ def make_family(header, seq, args):
         args.barcode_length)
     (fastq_header, paired_header) = fastq_entry_header(args, header, barcode)
     ds_read = make_ds_read(args, seq, barcode, 'forward')
+    rev_ds_read = make_ds_read(args, seq, barcode, 'reverse')
     num_reads = randint(1, args.max_num_reads)
     if args.map_file:
         args.map_file.write("{0}	{1}	{2}	{3}\n".format(
@@ -258,7 +267,7 @@ def make_family(header, seq, args):
         family.append("+")
         family.append(quality)
         family_seq2.append(paired_header)
-        family_seq2.append(ds_read)
+        family_seq2.append(rev_ds_read)
         family_seq2.append("+")
         family_seq2.append(quality)
     return family, family_seq2
