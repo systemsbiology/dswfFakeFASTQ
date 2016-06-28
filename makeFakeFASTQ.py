@@ -27,7 +27,8 @@ from random import randint, sample
 OPT_DEFAULTS = {
     'barcode_length': 10, 'spacer_length': 1, 'max_num_families': 15,
     'max_num_reads': 10, 'read_length': 156, 'buffer_both_sides': 0,
-    'buffer_end': 1, 'truncate_both_sides': 0, 'truncate_end': 1,
+    'buffer_end': 1, 'truncate_by_read': 1, 'rand_window': None,
+    'truncate_both_sides': 0, 'truncate_end': 0, 'truncate_start': 0,
     'prefix': 'DSWF', 'instrument': 'NS500770', 'flow_cell': 'H5VNJAFXX',
     'x_min': 1015, 'x_max': 26894, 'y_min': 1017, 'y_max': 20413,
     'lane_min': 1, 'lane_max': 4, 'quality_type': 'high',
@@ -125,9 +126,15 @@ def main(argv):
     parser.add_argument('--truncate_end', '-te', type=int, required=False,
                         help='Truncate sequence at the end of the FASTA line.\
                         Default: 1')
+    parser.add_argument('--truncate_start', '-ts', type=int, required=False,
+                        help='Truncate sequence at the start of the FASTA line\
+                        Default: 1')
     parser.add_argument('--truncate_both_sides', '-tbs', type=int,
                         required=False, help='Truncate both sides of FASTA\
                         sequence line. Default: 0')
+    parser.add_argument('--truncate_by_read', '-tbr', type=int, required=False,
+                        help="Truncate paired end 1 reads at end, truncate\
+                        paired end 2 reads at start. Default: 0")
 
     # Testing options
     parser.add_argument('--buffer_seq', '-buffSeq', type=int, required=False,
@@ -202,30 +209,56 @@ def buffer_sequence(args, seq, count=None):
 # barcode+spacer on front until the read is generated
 
 
-def truncate_sequence(args, seq, count=None):
+def truncate_sequence(args, seq, count=None, read_type=None):
     seq_diff = count if count else len(seq) - args.read_length
     if seq_diff <= 0:
         return seq
-    if args.truncate_end:
+    ts = args.truncate_start
+    te = args.truncate_end
+    ws = seq_diff  # window start
+    we = len(seq)  # window end
+    if args.truncate_by_read:
+        if read_type == '5':
+            ts = 0
+            te = 1
+        elif read_type == '3':
+            ts = 1
+            te = 0
+            # if we're making a 3' read we want to move the window randomly a
+            # little bit to the 5' to make bwa happy with the read distribution
+            if args.rand_window is not None:
+                rand_num = args.rand_window
+            else:
+                rand_num = randint(0, len(seq) - args.read_length)
+            ws = ws - rand_num
+            we = we - rand_num
+        else:
+            raise TypeError("read_type not set in truncate_sequence")
+
+    if te:
         new_seq = seq[0:-seq_diff]
-    else:
-        if args.truncate_both_sides:
+    elif ts:
+        new_seq = seq[ws:we]
+    elif args.truncate_both_sides:
             cnt_both_sides = int(seq_diff / 2)
             cnt_front = int(seq_diff % 2)
             new_seq = seq[cnt_both_sides:-cnt_both_sides]
             if cnt_front:
                 new_seq = seq[cnt_both_sides + cnt_front:-cnt_both_sides]
+    else:
+        raise TypeError("no truncate type specified")
     return new_seq
 
 
-def make_ds_read(args, seq, barcode):
+def make_ds_read(args, seq, barcode, read_type=None):
     ds_spacer = 'T' * args.spacer_length
     ds_length = len(ds_spacer) + len(barcode)
     total_length = len(seq) + ds_length
     if total_length == args.read_length:
         return "{0}{1}{2}".format(barcode, ds_spacer, seq)
     if (total_length > args.read_length):
-        ds_seq = truncate_sequence(args, seq, total_length - args.read_length)
+        ds_seq = truncate_sequence(args, seq, total_length - args.read_length,
+                                   read_type)
     if (total_length < args.read_length):
         ds_seq = buffer_sequence(args, seq, args.read_length - total_length)
     read = "{0}{1}{2}".format(barcode, ds_spacer, ds_seq)
@@ -245,27 +278,31 @@ def make_ds_read(args, seq, barcode):
 def make_family(header, seq, args):
     barcode = args.barcode if args.barcode else random_sequence(
         args.barcode_length)
-    (fastq_header, paired_header) = fastq_entry_header(args, header, barcode)
-    ds_read = make_ds_read(args, seq, barcode)
+    for_ds_read = make_ds_read(args, seq, barcode, '5')
+    rev_ds_read = make_ds_read(args, seq, barcode, '3')
     num_reads = randint(1, args.max_num_reads)
     if args.map_file:
         args.map_file.write("{0}	{1}	{2}	{3}\n".format(
             header, args.num_families, num_reads, barcode))
     # print("making {0} reads for {1} random barcode {2} header".format(
     #       num_reads, barcode, fastq_header))
-    quality = args.quality if args.quality else fastq_quality(
-        args, len(ds_read))
+    for_quality = args.quality if args.quality else fastq_quality(
+        args, len(for_ds_read))
+    rev_quality = args.quality if args.quality else fastq_quality(
+        args, len(rev_ds_read))
     family = []
     family_seq2 = []
     for i in range(1, num_reads + 1):
+        (fastq_header, paired_header) = fastq_entry_header(args, header,
+                                                           barcode)
         family.append(fastq_header)
-        family.append(ds_read)
+        family.append(for_ds_read)
         family.append("+")
-        family.append(quality)
+        family.append(for_quality)
         family_seq2.append(paired_header)
-        family_seq2.append(ds_read)
+        family_seq2.append(rev_ds_read)
         family_seq2.append("+")
-        family_seq2.append(quality)
+        family_seq2.append(rev_quality)
     return family, family_seq2
 
 
@@ -288,7 +325,7 @@ def random_sequence(length):
     bases = ['A', 'G', 'T', 'C']
     random_sequence = ['0']*length
     for i in range(length):
-        random_sequence[i] = bases[randint(0,3)]
+        random_sequence[i] = bases[randint(0, 3)]
     return ''.join(random_sequence)
 
 # make a sequence id header
@@ -313,7 +350,7 @@ def random_sequence(length):
 #  there is one flowcell ID per FASTQ file.
 #  there are 4 lanes per FASTQ file (1-4)
 #  there are 144 tiles per FASTQ file (1-21612 in increments of 12)
-#     first 3 positiosn are swaths: 111, 112, 113, 114, 115, 116. 211, 212,
+#     first 3 positions are swaths: 111, 112, 113, 114, 115, 116. 211, 212,
 #                                   213, 214, 215, 216
 #     last two are first three combined with 01-12 : 21601, 21602, 21603,
 #                                   21604, 21605, 21606, 21607, 21608, 21609,
