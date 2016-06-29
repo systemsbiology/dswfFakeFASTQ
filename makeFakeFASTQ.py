@@ -323,7 +323,7 @@ def fastq_quality(args, seq_len):
 
 def random_sequence(length):
     bases = ['A', 'G', 'T', 'C']
-    random_sequence = ['0']*length
+    random_sequence = ['0'] * length
     for i in range(length):
         random_sequence[i] = bases[randint(0, 3)]
     return ''.join(random_sequence)
