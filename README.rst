@@ -99,5 +99,53 @@ usage::
       --quality QUALITY, -qual QUALITY
                             Quality string to use. Default: None
 
+DSWFFakeFASTQ produces a set of paired end FASTQ files with barcodes and spacers as if the 
+FASTQ file had been produced by the DSWF procedure - amplification of sequence, attaching 
+barcodes and spacers.  
+
+The DSWF procedure samples a certain number of amplified molecules from the source DNA sample.
+These are 'family' members.  The procedure then separates each double stranded molecule and
+sequences each molecule multiple times.  These are 'reads'. Each 'family' has a different barcode.
+
+DSWFFakeFASTQ takes an input FASTA file.  The entries in the FASTA file should be greater than
+the read length that you want DSWFFakeFASTQ to produce.  Entries of 100 bp or less are sometimes
+difficult to match to the genome uniquely using bwa.  It is recommended that you provide FASTA
+entries of 300 bp or more. 
+
+For each sequence in the FASTA file, DSWFFakeFASTQ randomly creates a number of molecules 
+that will be sequenced as 'Num Families'.  If you have two sequences in the FASTA file that
+contain the same sequence except for a SNP near the beginning of the sequence, seq1:C and seq1:T,
+DSWFFakeFASTQ will create a random number of 'families' for each sequence.  As a hypothetical
+example, DSWFFakeFASTQ creates 2 families for seq1:C and 4 for seq1:T.  Each family gets assigned
+a unique barcode.  Then DSWFFakeFASTQ will create a random number of reads for each family.  If
+DSWFFakeFASTQ creates 5 reads for family 1 of seq1:C with a barcode of AACAAGCAGT, then there will
+be 5 FASTQ entries for seq1:C with barcode AACAAGCAGT.  If it creates 3 reads for family 2 of
+seq1:C with a barcode of GCGGCACATG, then there will be 3 FASTQ entries for seq1:C with a 
+barcode of GCGGCACATG.  The numbers of families and reads with associated barcodes are stored in a
+map_file.txt produced when DSWFFakeFASTQ is run. Depending on the options selected, the FASTQ header
+will include the FASTA file header and/or the barcode information for troubleshooting.
+
+FASTA file:
+
+>seq1:C
+GTGATAGAGTGGCATTAGAAATTCCAGATAGAGCTAAAACTGAAGCTTTCCTTATAGAGATTTATCCTAGTTAGTTTGCGGGGATACTGGTTGGGCCGAAATCCTTTTGAAACTGGTTAAAACTCTCAGGGGCCCTTCCATTTGGTTTTCTGCAGCTGTGGATTCCCAACCAACAGTCATTGTGATCTTCCAAGCCAGAATGTGCTCTGGGCTGGAGTGGCAGCCCCTTATTCTGGCATTCAAGAGCGTGGGCACCCTTTGGCTATTTCTAGCATTTGTCTGGTTAGCCTTTGGGAAACG
+>seq1:T
+GTGATAGAGTGGCATTAGAAATTCCAGATAGAGCTAAAACTGAAGCTTTCCTTATAGAGATTTATCCTAGTTAGTTTGCGGGGATACTGGTTGGGCCGAAATCCTTTTGAAACTGGTTAAAACTCTCAGGGGCCCTTCCATTTGGTTTTCTGCAGCTGTGGATTCCCAACCAACAGTCATTGTGATCTTCCAAGCCAGAATGTGCTCTGGGCTGGAGTGGCAGCCCCTTATTCTGGCATTCAAGAGCGTGGGCACCCTTTGGCTATTTCTAGCATTTGTCTGGTTAGCCTTTGGGAAACG
+
+Map file:
+
+FASTA Header    Num Families    Num Reads   Barcode
+>seq1:C         2               5           AACAAGCAGT
+>seq1:C         2               3           GCGGCACATG
+>seq1:T         4               3           AGCTGATCAC
+>seq1:T         4               8           AGATGGTATG
+>seq1:T         4               6           TGATCACGCC
+>seq1:T         4               7           CCACGTGCGG
+
+The Num Families information is duplicated on every line and indicates the total number of lines 
+of families for the FASTA sequence.  The number of families generated depends on the max_num_families
+value.  Each line should have a unique Barcode and a number of reads generated depending on the 
+max_num_reads value.  
+
 .. |Build Status| image:: https://travis-ci.org/systemsbiology/dswfFakeFASTQ.svg?branch=master
    :target: https://travis-ci.org/systemsbiology/dswfFakeFASTQ
