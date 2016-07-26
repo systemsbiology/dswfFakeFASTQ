@@ -30,7 +30,9 @@ class FakeFASTQTest(unittest.TestCase):
                               tile_min=3, tile_max=3, is_filtered=['N'],
                               include_fasta_header_in_fastq_header=1, include_barcode_in_fastq_header=1,
                               paired_end=0, instrument="N5V", flow_cell="H5N", quality_type="high",
-                              read_length=25, spacer_length=1, max_num_reads=1, max_num_families=1,
+                              read_length=25, spacer_length=1,
+                              max_num_reads=1, min_num_reads=1, num_reads=None,
+                              max_num_families=1, min_num_families=1, num_families=None,
                               map_file=0)
 
     # def tearDown(self):
@@ -476,6 +478,111 @@ class FakeFASTQTest(unittest.TestCase):
         canonical2 = ['@N5V:1:H5N:1:11103:5:8 2:N:0:test1:ATATAGGACAGCCCTCCAAT', 'GCCCTCCAATTGAATTGACCCGGAT', '+', 'HFDEGEFHFIFDGIEHIFGEJJJHG']
         self.assertEqual(' '.join(canonical1), ' '.join(testFam1), "make_family returns proper values for family 1.\ncanonical: {0}\n     test: {1} ".format(canonical1, testFam1))
         self.assertEqual(canonical2, testFam2, "make_family returns proper values for family 2.\ncanonical: {0}\n     test: {1} ".format(canonical2, testFam2))
+
+    ###########################################################################
+    # TEST make_clan
+    def test_make_clan(self):
+        self.args.quality = self.full_qual
+        self.args.read_length = 36
+        self.args.fwbarcode = self.fwbarcode
+        self.args.rvbarcode = self.rvbarcode
+        self.args.min_num_families = 3
+        (testFam1, testFam2) = makeFakeFASTQ.make_clan(self.fasta_header, self.seq, self.args)
+        canonical1 = ['@N5V:1:H5N:1:11103:5:8 1:N:0:test1:ATATAGGACAGCCCTCCAAT', 'ATATAGGACATGCTAATACGAATTGACCCGGATAGA', '+', 'HFDEGEFHFIFDGIEHIFGEJJJHGEFHFIFDGIE']
+        canonical2 = ['@N5V:1:H5N:1:11103:5:8 2:N:0:test1:ATATAGGACAGCCCTCCAAT', 'GCCCTCCAATTGCTAATACGAATTGACCCGGATAGA', '+', 'HFDEGEFHFIFDGIEHIFGEJJJHGEFHFIFDGIE']
+        self.assertEqual(' '.join(canonical1), ' '.join(testFam1), "make_clan returns proper values for clan 1.\ncanonical: {0}\n     test: {1} ".format(canonical1, testFam1))
+        self.assertEqual(canonical2, testFam2, "make_clan returns proper values for clan 2.\ncanonical: {0}\n     test: {1} ".format(canonical2, testFam2))
+
+
+    def test_min_num_families(self):
+        self.args.quality = self.full_qual
+        self.args.read_length = 36
+        self.args.fwbarcode = self.fwbarcode
+        self.args.rvbarcode = self.rvbarcode
+        self.args.min_num_families = 3
+        (testFam1, testFam2) = makeFakeFASTQ.make_clan(self.fasta_header, self.seq, self.args)
+        canonical1 = ['@N5V:1:H5N:1:11103:5:8 1:N:0:test1:ATATAGGACAGCCCTCCAAT', 'ATATAGGACATGCTAATACGAATTGACCCGGATAGA', '+', 'HFDEGEFHFIFDGIEHIFGEJJJHGEFHFIFDGIE']
+        canonical2 = ['@N5V:1:H5N:1:11103:5:8 2:N:0:test1:ATATAGGACAGCCCTCCAAT', 'GCCCTCCAATTGCTAATACGAATTGACCCGGATAGA', '+', 'HFDEGEFHFIFDGIEHIFGEJJJHGEFHFIFDGIE']
+        self.assertEqual(' '.join(canonical1), ' '.join(testFam1), "make_clan returns proper values for clan 1.\ncanonical: {0}\n     test: {1} ".format(canonical1, testFam1))
+        self.assertEqual(canonical2, testFam2, "make_clan returns proper values for clan 2.\ncanonical: {0}\n     test: {1} ".format(canonical2, testFam2))
+
+
+
+    ###########################################################################
+    # TEST reads options
+    # this should fail because max_num_reads is too small
+    def test_min_num_reads_fails_without_max_num_reads(self):
+        self.args.quality = self.full_qual
+        self.args.read_length = 36
+        self.args.fwbarcode = self.fwbarcode
+        self.args.rvbarcode = self.rvbarcode
+        self.args.min_num_reads = 3
+        try:
+            (testFam1, testFam2) = makeFakeFASTQ.make_family(self.fasta_header, self.seq, self.args)
+        except TypeError:
+            pass
+        except Exception as e:
+            self.fail("Unexpected exception raised:", e)
+        else:
+            self.fail("Expected TypeError not raised")
+
+    def test_min_num_reads(self):
+        self.args.quality = self.full_qual
+        self.args.read_length = 36
+        self.args.fwbarcode = self.fwbarcode
+        self.args.rvbarcode = self.rvbarcode
+        self.args.min_num_reads = 3
+        self.args.max_num_reads = 3
+        (testFam1, testFam2) = makeFakeFASTQ.make_family(self.fasta_header, self.seq, self.args)
+        canonical1 = ['@N5V:1:H5N:1:11103:5:8 1:N:0:test1:ATATAGGACAGCCCTCCAAT', 'ATATAGGACATGCTAATACGAATTGACCCGGATAGA', '+', 'HFDEGEFHFIFDGIEHIFGEJJJHGEFHFIFDGIE', '@N5V:1:H5N:1:11103:5:8 1:N:0:test1:ATATAGGACAGCCCTCCAAT', 'ATATAGGACATGCTAATACGAATTGACCCGGATAGA', '+', 'HFDEGEFHFIFDGIEHIFGEJJJHGEFHFIFDGIE', '@N5V:1:H5N:1:11103:5:8 1:N:0:test1:ATATAGGACAGCCCTCCAAT', 'ATATAGGACATGCTAATACGAATTGACCCGGATAGA', '+', 'HFDEGEFHFIFDGIEHIFGEJJJHGEFHFIFDGIE']
+        canonical2 = ['@N5V:1:H5N:1:11103:5:8 2:N:0:test1:ATATAGGACAGCCCTCCAAT', 'GCCCTCCAATTGCTAATACGAATTGACCCGGATAGA', '+', 'HFDEGEFHFIFDGIEHIFGEJJJHGEFHFIFDGIE', '@N5V:1:H5N:1:11103:5:8 2:N:0:test1:ATATAGGACAGCCCTCCAAT', 'GCCCTCCAATTGCTAATACGAATTGACCCGGATAGA', '+', 'HFDEGEFHFIFDGIEHIFGEJJJHGEFHFIFDGIE', '@N5V:1:H5N:1:11103:5:8 2:N:0:test1:ATATAGGACAGCCCTCCAAT', 'GCCCTCCAATTGCTAATACGAATTGACCCGGATAGA', '+', 'HFDEGEFHFIFDGIEHIFGEJJJHGEFHFIFDGIE']
+        self.assertEqual(len(testFam1), 4*self.args.min_num_reads, "make_family returns proper number of lines")
+        self.assertEqual(' '.join(canonical1), ' '.join(testFam1), "make_family returns proper values for forward.\ncanonical: {0}\n     test: {1} ".format(canonical1, testFam1))
+        self.assertEqual(len(testFam2), 4*self.args.min_num_reads, "make_family returns proper number of lines")
+        self.assertEqual(canonical2, testFam2, "make_family returns proper values for reverse.\ncanonical: {0}\n     test: {1} ".format(canonical2, testFam2))
+
+    def test_min_num_reads_overridden_by_num_reads(self):
+        self.args.quality = self.full_qual
+        self.args.read_length = 36
+        self.args.fwbarcode = self.fwbarcode
+        self.args.rvbarcode = self.rvbarcode
+        self.args.min_num_reads = 3
+        self.args.max_num_reads = 3
+        self.args.num_reads = 1
+        (testFam1, testFam2) = makeFakeFASTQ.make_family(self.fasta_header, self.seq, self.args)
+        canonical1 = ['@N5V:1:H5N:1:11103:5:8 1:N:0:test1:ATATAGGACAGCCCTCCAAT', 'ATATAGGACATGCTAATACGAATTGACCCGGATAGA', '+', 'HFDEGEFHFIFDGIEHIFGEJJJHGEFHFIFDGIE']
+        canonical2 = ['@N5V:1:H5N:1:11103:5:8 2:N:0:test1:ATATAGGACAGCCCTCCAAT', 'GCCCTCCAATTGCTAATACGAATTGACCCGGATAGA', '+', 'HFDEGEFHFIFDGIEHIFGEJJJHGEFHFIFDGIE']
+        # len should be 4 because we're asking for 1 num_reads
+        self.assertEqual(len(testFam1), 4*self.args.num_reads, "make_family returns proper number of lines")
+        self.assertEqual(' '.join(canonical1), ' '.join(testFam1), "make_family returns proper values for forward.\ncanonical: {0}\n     test: {1} ".format(canonical1, testFam1))
+        self.assertEqual(len(testFam2), 4*self.args.num_reads, "make_family returns proper number of lines")
+        self.assertEqual(canonical2, testFam2, "make_family returns proper values for reverse.\ncanonical: {0}\n     test: {1} ".format(canonical2, testFam2))
+
+
+    ###########################################################################
+    # TEST num_families options
+
+
+
+    ###########################################################################
+    # TEST FREQUENCY FILE OPTIONS
+
+
+
+
+    def test_frequency_file(self):
+        self.args.quality = self.full_qual
+        self.args.read_length = 36
+        self.args.fwbarcode = self.fwbarcode
+        self.args.rvbarcode = self.rvbarcode
+        self.args.frequency = ">test1	3	5	high\n>test2	10	5	high"
+        (testFam1, testFam2) = makeFakeFASTQ.make_family(self.fasta_header, self.seq, self.args)
+        canonical1 = ['@N5V:1:H5N:1:11103:5:8 1:N:0:test1:ATATAGGACAGCCCTCCAAT', 'ATATAGGACATGCTAATACGAATTGACCCGGATAGA', '+', 'HFDEGEFHFIFDGIEHIFGEJJJHGEFHFIFDGIE']
+        canonical2 = ['@N5V:1:H5N:1:11103:5:8 2:N:0:test1:ATATAGGACAGCCCTCCAAT', 'GCCCTCCAATTGCTAATACGAATTGACCCGGATAGA', '+', 'HFDEGEFHFIFDGIEHIFGEJJJHGEFHFIFDGIE']
+        self.assertEqual(' '.join(canonical1), ' '.join(testFam1), "make_family returns proper values for family 1.\ncanonical: {0}\n     test: {1} ".format(canonical1, testFam1))
+        self.assertEqual(canonical2, testFam2, "make_family returns proper values for family 2.\ncanonical: {0}\n     test: {1} ".format(canonical2, testFam2))
+
+
 
     ###########################################################################
 
