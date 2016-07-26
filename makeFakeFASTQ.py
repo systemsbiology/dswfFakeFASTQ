@@ -50,8 +50,10 @@ def main(argv):
     parser.add_argument('--barcode_length', '-bcl', type=int, required=False,
                         help='Length of Barcode at beginning and end of\
                         sequence. Default: 10')
-    parser.add_argument('--barcode', '-bc', type=int, required=False,
-                        help='Barcode string to use. Default: None')
+    parser.add_argument('--fwbarcode', '-fwbc', type=int, required=False,
+                        help='Forward barcode string to use. Default: None')
+    parser.add_argument('--rvbarcode', '-rvbc', type=int, required=False,
+                        help='Reverse barcode string to use. Default: None')
     parser.add_argument('--spacer_length', '-sl', type=int, required=False,
                         help='Length of Spacer between Barcode and sequence.\
                         Default: 1')
@@ -276,16 +278,17 @@ def make_ds_read(args, seq, barcode, read_type=None):
 
 
 def make_family(header, seq, args):
-    barcode = args.barcode if args.barcode else random_sequence(
-        args.barcode_length)
-    for_ds_read = make_ds_read(args, seq, barcode, '5')
-    rev_ds_read = make_ds_read(args, seq, barcode, '3')
+    fwbarcode = args.fwbarcode if args.fwbarcode else random_sequence(args.barcode_length)
+    for_ds_read = make_ds_read(args, seq, fwbarcode, '5')
+    rvbarcode = args.rvbarcode if args.rvbarcode else random_sequence(args.barcode_length)
+    rev_ds_read = make_ds_read(args, seq, rvbarcode, '3')
+    fullbarcode = fwbarcode + rvbarcode
     num_reads = randint(1, args.max_num_reads)
     if args.map_file:
-        args.map_file.write("{0}	{1}	{2}	{3}\n".format(
-            header, args.num_families, num_reads, barcode))
-    # print("making {0} reads for {1} random barcode {2} header".format(
-    #       num_reads, barcode, fastq_header))
+        args.map_file.write("{0}	{1}	{2}	{3}	{4}\n".format(
+            header, args.num_families, num_reads, fwbarcode, rvbarcode))
+    # print("making {0} reads for {1} fwbarcode {2} rvbarcode {3} header".format(
+    #       num_reads, fwbarcode, rvbarcode, fastq_header))
     for_quality = args.quality if args.quality else fastq_quality(
         args, len(for_ds_read))
     rev_quality = args.quality if args.quality else fastq_quality(
@@ -294,7 +297,7 @@ def make_family(header, seq, args):
     family_seq2 = []
     for i in range(1, num_reads + 1):
         (fastq_header, paired_header) = fastq_entry_header(args, header,
-                                                           barcode)
+                                                           fullbarcode)
         family.append(fastq_header)
         family.append(for_ds_read)
         family.append("+")
