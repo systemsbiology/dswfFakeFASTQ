@@ -6,15 +6,7 @@ import argparse
 import gzip
 from random import randint, sample
 
-# Last updated: 2016/05/12
-# 2016/05/11: Fixed bug with newlines between families.
-#             Added --max_num_families functionality.
-#             Added debug options to include FASTA header and barcode in
-#               FASTQ header.
-# 2016/05/12: Fixed formatting bugs in code
-# 2016/05/13: Added map_file for debug.  Fixed bug in fastq_quality that
-#               was making it n-1
-# VERSION: 0.04
+VERSION = 0.05
 
 # To generate duplex sequencing simulated data, we start with N number of
 # molecules of double stranded DNA.  These are represented by the number of
@@ -24,9 +16,60 @@ from random import randint, sample
 #           Y = 10.  The maximum number of entries in the FASTQ file is
 #           360*15*10 = 54,000.
 # Valid values for quality_type are 'high', 'medium', 'low'
+
+# There are two ways to specify frequencies in the FASTQ.
+# 1) Input FASTA contains a number of fasta entries for frequency
+#    and num_families and num_reads are specified in options.
+# 2) Input FASTA contains one entry and a frequency file is supplied
+
+# DEFAULT:
+# If provided a FASTQ without a frequencies file, makeFakeFASTQ will produce
+# 1-max_num_families families with 1-max_num_reads reads for each FASTA entry.
+# Ex: A fasta contains three entries for rs10092491 with allele 1 sequence
+# and provides 10 entries for rs10092491 with allele 2 sequence. makeFakeFASTQ
+# randomly choose to make 5 families for the first allele 1 seq, 6 for the
+# second and 2 for the third for a total of 13 families for allele1.  It
+# randomly chooses to make 13, 2, 5, 8, 4, 1, 9, 5, 9, 2 familes for each of
+# the allele 2 sequences for a total of 58 families for allele2.  Thus
+# frequencies are not preserved from the fasta file and may significantly
+# vary depending on randomness.
+
+# Specified with options:
+# makeFakeFASTQ using the num_families option will create a specified number of
+# families for each entry in the FASTA file.
+# Ex: A fasta contains 3 entries for rs10092491 with allele 1 sequence and 10
+# entries for rs100092491 with allele 2 sequence.  num_families is specified as
+# 5, so makeFakeFASTQ will create 3*5 = 15 families for rs10092491 allele 1 and
+# 10*5 = 50 families for rs10092491 allele 2. If num_reads isn't specified then
+# it will create 1-max_num_reads to support each of these families, but if it
+# is specified as 5 then each family would have 5 reads supporting it for a
+# total of 15*5+50*5 = 325 reads in the FASTQ file.
+
+# Frequency file:
+# A frequency file is used to specify the number of reads in SSCS, DCS, and
+# families. The frequency file is in the format
+#  <fasta header>\t<num_families>\t<num_reads>\t<quality type>
+
+# Ex:
+# >rs100092491:allele1	3	5 	high
+# >rs100092491:allele2	10	5	high
+
+# This can also be used to combine both methods of frequency generation and
+# quality as follows:
+# >rs100092491:allele1:1	3	5	high
+# >rs100092491:allele1:2	2	5	medium
+# >rs100092491:allele2:1	10	5	high
+# >rs100092491:allele2:2	5	5	low
+# This file would produce 3 families of 5 reads for allele1:1 and 2 families of
+# 5 reads for allele1:2.  As these FASTA sequences should be identical, this
+# would produce the same counts as having 5 families with 5 reads, but the
+# quality distribution would differ.
+
 OPT_DEFAULTS = {
-    'barcode_length': 10, 'spacer_length': 1, 'max_num_families': 15,
-    'max_num_reads': 10, 'read_length': 156, 'buffer_both_sides': 0,
+    'barcode_length': 10, 'spacer_length': 1,
+    'min_num_families': 1, 'max_num_families': 15,
+    'min_num_reads': 1, 'max_num_reads': 1,
+    'read_length': 156, 'buffer_both_sides': 0,
     'buffer_end': 1, 'truncate_by_read': 1, 'rand_window': None,
     'truncate_both_sides': 0, 'truncate_end': 0, 'truncate_start': 0,
     'prefix': 'DSWF', 'instrument': 'NS500770', 'flow_cell': 'H5VNJAFXX',
@@ -57,12 +100,20 @@ def main(argv):
     parser.add_argument('--spacer_length', '-sl', type=int, required=False,
                         help='Length of Spacer between Barcode and sequence.\
                         Default: 1')
-    parser.add_argument('--max_num_families', '-nf', type=int, required=False,
-                        help='Maximum number of families per molecule.\
-                        Default: 15')
-    parser.add_argument('--max_num_reads', '-nr', type=int, required=False,
+    parser.add_argument('--max_num_families', '-maxnf', type=int,
+                        required=False, help='Maximum number of families per \
+                        molecule.')
+    parser.add_argument('--min_num_families', '-minnf', type=int,
+                        required=False, help='Minimum number of families per \
+                        molecule. Default: 1')
+    parser.add_argument('--max_num_reads', '-maxnr', type=int, required=False,
                         help='Maximum number of reads per family.\
                         Default: 10')
+    parser.add_argument('--min_num_reads', '-minnr', type=int, required=False,
+                        help='Minimum number of reads per family.\
+                        Default: 1')
+    parser.add_argument('--num_reads', '-nr', type=int, required=False,
+                        help='Number of reads per family.')
     parser.add_argument('--read_length', '-rl', type=int, required=False,
                         help='Length of sequence in FASTQ output.\
                         Default: 156')
@@ -117,6 +168,8 @@ def main(argv):
     parser.add_argument('--map_file', type=int, required=False,
                         help='Create a map file of molecules to number of\
                         families to number of reads.')
+    parser.add_argument('--frequencies_file', '-ff', nargs='?', required=False,
+                        help='File of frequencies for families')
 
     # Sequence Buffering and Truncation Options
     parser.add_argument('--buffer_end', '-be', type=int, required=False,
@@ -145,6 +198,9 @@ def main(argv):
                         help='Quality string to use. Default: None')
 
     args = parser.parse_args(argv[1:])
+    # check that max_num_reads >= min_num_reads
+    if args.min_num_reads > args.max_num_reads:
+        args.max_num_reads = args.min_num_reads
     print("args type is {0}".format(type(args)))
 
     fasta = open(args.fasta)
@@ -152,6 +208,7 @@ def main(argv):
     seq2_file = gzip.open(args.prefix + '_seq2.fastq.gz', 'wb')
     if args.map_file is 1:
         args.map_file = gzip.open(args.prefix + '_map.txt.gz', 'wb')
+        args.map_file.write("VERSION\t"+str(VERSION))
         args.map_file.write("\t".join(["FASTA Header", "Num Familes",
                                        "Num Reads", "Barcode"]) + "\n")
 
@@ -162,19 +219,32 @@ def main(argv):
         if not line:
             break
         seq = line.rstrip('\r\n').upper()
-        num_families = randint(1, args.max_num_families)
-        print("making {0} families for {1}".format(num_families, header))
-        args.num_families = num_families
-        for f in range(1, num_families + 1):
-            family_seq1, family_seq2 = make_family(header, seq, args)
-            seq1_file.write("\n".join(family_seq1) + "\n")
-            seq2_file.write("\n".join(family_seq2) + "\n")
+        (clan_seq1, clan_seq2) = make_clan(header, seq, args)
+        seq1_file.write("\n".join(map("\n".join,clan_seq1)) + "\n")
+        seq2_file.write("\n".join(map("\n".join,clan_seq2)) + "\n")
     if args.map_file:
         args.map_file.close()
     seq1_file.close()
     seq2_file.close()
     fasta.close()
     print("Finished generating FASTQ files")
+
+    exit(0)
+
+# make_clan creates a number of families per clan
+
+
+def make_clan(header, seq, args):
+    num_families = randint(1, args.max_num_families)
+    print("making {0} families for {1}".format(num_families, header))
+    args.num_families = num_families
+    clan_seq = []
+    clan_seq2 = []
+    for f in range(1, num_families + 1):
+        family_seq1, family_seq2 = make_family(header, seq, args)
+        clan_seq.append(family_seq1)
+        clan_seq2.append(family_seq2)
+    return (clan_seq, clan_seq2)
 
 # add random sequence to the FASTA line to reach read length
 # count is used to buffer a sequence that needs a barcode+spacer added on the
@@ -278,17 +348,28 @@ def make_ds_read(args, seq, barcode, read_type=None):
 
 
 def make_family(header, seq, args):
-    fwbarcode = args.fwbarcode if args.fwbarcode else random_sequence(args.barcode_length)
+    if args.fwbarcode:
+        fwbarcode = args.fwbarcode
+    else:
+        fwbarcode = random_sequence(args.barcode_length)
     for_ds_read = make_ds_read(args, seq, fwbarcode, '5')
-    rvbarcode = args.rvbarcode if args.rvbarcode else random_sequence(args.barcode_length)
+    if args.rvbarcode:
+        rvbarcode = args.rvbarcode
+    else:
+        rvbarcode = random_sequence(args.barcode_length)
     rev_ds_read = make_ds_read(args, seq, rvbarcode, '3')
     fullbarcode = fwbarcode + rvbarcode
-    num_reads = randint(1, args.max_num_reads)
+    print("make_family header {} seq {} args {}".format(header, seq, args))
+    if args.min_num_reads > args.max_num_reads:
+        raise TypeError("Incorrect value of min_num_reads or max_num_reads")
+    num_reads = randint(args.min_num_reads, args.max_num_reads)
+    if args.num_reads:
+        num_reads = args.num_reads
     if args.map_file:
         args.map_file.write("{0}	{1}	{2}	{3}	{4}\n".format(
             header, args.num_families, num_reads, fwbarcode, rvbarcode))
-    # print("making {0} reads for {1} fwbarcode {2} rvbarcode {3} header".format(
-    #       num_reads, fwbarcode, rvbarcode, fastq_header))
+    # print("making {0} reads for {1} fwbarcode {2} rvbarcode {3} header"
+    # .format(num_reads, fwbarcode, rvbarcode, header))
     for_quality = args.quality if args.quality else fastq_quality(
         args, len(for_ds_read))
     rev_quality = args.quality if args.quality else fastq_quality(
