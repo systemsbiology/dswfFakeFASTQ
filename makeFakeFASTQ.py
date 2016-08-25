@@ -5,6 +5,7 @@ import time
 import argparse
 import gzip
 from random import randint, sample
+from Bio.Seq import Seq # used for reverse_complement()
 
 VERSION = 0.05
 
@@ -12,9 +13,33 @@ VERSION = 0.05
 # molecules of double stranded DNA.  These are represented by the number of
 # entries in the FASTA file that feeds this program (N). We then generate
 # 1-X families (-nf), composed of 1-Y reads (-nr).
+
+# The barcode on each side of a molecule can be read in either direction
+# by the sequencer, so some amount of the families must have reversed
+# barcodes (Z, num_flipped).
+
+# This program assumes that the FASTA file contains FORWARD strand
+# sequence and thus generates the reverse complement.
+
+# ab:1 is a - FORWARD - b:1
+# ab:2 is a - REVERSE - b:2
+
+# ba:1 is b - REVERSE - a:1
+# ba:2 is b - FORWARD - a:2
+
+# We combine ab:1 and ba:2 to get the FORWARD sequence
+# We combine ab:2 and ba:1 to get the REVERSE sequence
+# We then get one duplex consensus for FORWARD and one
+# for REVERSE.
+# Note: This can be flipped where ab:1/ba:2 contain REVERSE
+# and then ab:2/ba:2 contain FORWARD in real data
+
+#  If num_flipped is set to 0 then only produces ab:1/ab:2
+
 # Example:  Starting with 360 entries in the FASTA file, with X = 15 and
-#           Y = 10.  The maximum number of entries in the FASTQ file is
-#           360*15*10 = 54,000.
+#           Y = 10, and Z = 5. The maximum number of entries in the FASTQ
+#           file is 360*15*10 = 54,000 with half of reads flipped.
+
 # Valid values for quality_type are 'high', 'medium', 'low'
 
 # There are two ways to specify frequencies in the FASTQ.
@@ -48,7 +73,7 @@ VERSION = 0.05
 # Frequency file:
 # A frequency file is used to specify the number of reads in SSCS, DCS, and
 # families. The frequency file is in the format
-#  <fasta header>\t<num_families>\t<num_reads>\t<quality type>
+#  <fasta header>\t<num_families>\t<num flipped>\t<num_reads>\t<quality type>
 
 # Ex:
 # >rs100092491:allele1	3	5 	high
@@ -56,19 +81,20 @@ VERSION = 0.05
 
 # This can also be used to combine both methods of frequency generation and
 # quality as follows:
-# >rs100092491:allele1:1	3	5	high
-# >rs100092491:allele1:2	2	5	medium
-# >rs100092491:allele2:1	10	5	high
-# >rs100092491:allele2:2	5	5	low
-# This file would produce 3 families of 5 reads for allele1:1 and 2 families of
-# 5 reads for allele1:2.  As these FASTA sequences should be identical, this
-# would produce the same counts as having 5 families with 5 reads, but the
-# quality distribution would differ.
+# >rs100092491:allele1	3	2   5	high
+# >rs100092491:allele1	2	1   5	medium
+# >rs100092491:allele2	10	3   5	high
+# >rs100092491:allele2	5	3   5	low
+# This file would produce 3 families of 5 reads (with 3 ab and 2 ba) for
+# allele1 line 1 and 2 families of 5 reads (with 1 ab and 1 ba) for allele1
+# line 2.  As these FASTA sequences are, this would produce the same counts
+# as having 5 families with 5 reads, but the quality distribution differs.
 
 OPT_DEFAULTS = {
     'barcode_length': 10, 'spacer_length': 1,
-    'min_num_families': 1, 'max_num_families': 15,
-    'min_num_reads': 1, 'max_num_reads': 1,
+    'min_num_families': 2, 'max_num_families': 15,
+    'min_num_reads': 3, 'max_num_reads': 20,
+    'min_num_flipped': 2, 'max_num_flipped': 10, # defaults to half of reads
     'read_length': 156, 'buffer_both_sides': 0,
     'buffer_end': 1, 'truncate_by_read': 1, 'rand_window': None,
     'truncate_both_sides': 0, 'truncate_end': 0, 'truncate_start': 0,
@@ -79,12 +105,24 @@ OPT_DEFAULTS = {
     'tile_min': 1, 'tile_max': 12, 'paired_end': 1, 'is_filtered': ['N'],
     'include_fasta_header_in_fastq_header': 1,
     'include_barcode_in_fastq_header': 1,
-    'map_file': 1  # DEBUG
+    'map_file': 1, 'tag_file': 1  # DEBUG
 }
 DESCRIPTION = """Create FASTQ data."""
 
 QUAL_SET = {'high': [35, 41], 'medium': [23, 30], 'low': [3, 15]}
 
+
+# Design:
+#  Multiple Duplex Consensus Sequences (DCS) form a clan
+#  Multiple 5->3 and 3->5 Single Strand Consensus sequences form a family
+#  An individual sequence is a read
+#  There are always paired end reads, so one 5->3 and one 3->5
+#  make_clan makes multiple families via calls to make_family
+#  make_family makes multiple paired end reads
+#  the 5->3 read for the top strand is called top_five_for_ds_read
+#  the 3->5 read for the top strand is called top_three_for_ds_read
+#  the 5->3 read for the bottom strand is called bottom_five_for_ds_read
+#  the 3->5 read for the bottom strand is called bottom_three_for_ds_read
 
 def main(argv):
     parser = argparse.ArgumentParser(description=DESCRIPTION)
@@ -106,6 +144,9 @@ def main(argv):
     parser.add_argument('--min_num_families', '-minnf', type=int,
                         required=False, help='Minimum number of families per \
                         molecule. Default: 1')
+    parser.add_argument('--num_families', '-nf', type=int,
+                        required=False, help='Number of families per \
+                        molecule.')
     parser.add_argument('--max_num_reads', '-maxnr', type=int, required=False,
                         help='Maximum number of reads per family.\
                         Default: 10')
@@ -117,6 +158,15 @@ def main(argv):
     parser.add_argument('--read_length', '-rl', type=int, required=False,
                         help='Length of sequence in FASTQ output.\
                         Default: 156')
+    parser.add_argument('--max_num_flipped', '-maxnff', type=int,
+                        required=False, help='Maximum number of flipped \
+                        families per molecule.')
+    parser.add_argument('--min_num_flipped', '-minnff', type=int,
+                        required=False, help='Minimum number of flipped \
+                        familes per molecule. Default: 1')
+    parser.add_argument('--num_flipped', '-nff', type=int,
+                        required=False, help='Number of flipped families \
+                        per molecule.')
     parser.add_argument('--prefix', '-p', type=str, required=False,
                         help='Prefix for FASTQ output files. Default: DSWF')
     parser.add_argument('--instrument', '-inst', type=str, required=False,
@@ -201,6 +251,10 @@ def main(argv):
     # check that max_num_reads >= min_num_reads
     if args.min_num_reads > args.max_num_reads:
         args.max_num_reads = args.min_num_reads
+    if args.min_num_families > args.max_num_families:
+        args.max_num_families = args.min_num_families
+    if args.min_num_flipped > args.max_num_flipped:
+        args.max_num_flipped = args.min_num_flipped
     print("args type is {0}".format(type(args)))
 
     fasta = open(args.fasta)
@@ -208,9 +262,15 @@ def main(argv):
     seq2_file = gzip.open(args.prefix + '_seq2.fastq.gz', 'wb')
     if args.map_file is 1:
         args.map_file = gzip.open(args.prefix + '_map.txt.gz', 'wb')
-        args.map_file.write("VERSION\t"+str(VERSION))
+        args.map_file.write("VERSION\t"+str(VERSION)+"\n")
         args.map_file.write("\t".join(["FASTA Header", "Num Familes",
-                                       "Num Reads", "Barcode"]) + "\n")
+                                       "Num Reads", "Num Flipped", "Barcode"])
+                                       + "\n")
+    if args.tag_file is 1:
+        args.tag_file = gzip.open(args.prefix + '_tags.txt.gz', 'wb')
+        args.tag_file.write('VERSION\t'+str(VERSION)+"\n")
+        args.tag_file.write("\t".join(["FASTA Header", "Barcode","Reads"]) 
+                                      + "\n")
 
     print('opened file ' + args.fasta)
     while True:
@@ -235,13 +295,15 @@ def main(argv):
 
 
 def make_clan(header, seq, args):
-    num_families = randint(1, args.max_num_families)
+    if args.min_num_families > args.max_num_families:
+        raise TypeError("Incorrect value of min_num_families or max_num_families")
+    if args.num_families == None:
+        num_families = randint(args.min_num_families, args.max_num_families)
     print("making {0} families for {1}".format(num_families, header))
-    args.num_families = num_families
     clan_seq = []
     clan_seq2 = []
     for f in range(1, num_families + 1):
-        family_seq1, family_seq2 = make_family(header, seq, args)
+        family_seq1, family_seq2 = make_family(header, seq, args, num_families)
         clan_seq.append(family_seq1)
         clan_seq2.append(family_seq2)
     return (clan_seq, clan_seq2)
@@ -259,7 +321,7 @@ def buffer_sequence(args, seq, count=None):
     buffer_seq = args.buffer_seq if args.buffer_seq else random_sequence(
         seq_diff)
     if args.buffer_end:
-        new_seq = ''.join([seq, buffer_seq[:seq_diff]])
+        new_seq = ''.join(str(v) for v in [seq, buffer_seq[:seq_diff]])
     else:
         if args.buffer_both_sides:
             cnt_both_sides = int(seq_diff / 2)
@@ -296,17 +358,19 @@ def truncate_sequence(args, seq, count=None, read_type=None):
         elif read_type == '3':
             ts = 1
             te = 0
+            # taking the wobble out so that UnifiedConsensusMaker works 20160825
             # if we're making a 3' read we want to move the window randomly a
             # little bit to the 5' to make bwa happy with the read distribution
-            if args.rand_window is not None:
-                rand_num = args.rand_window
-            else:
-                rand_num = randint(0, len(seq) - args.read_length)
-            ws = ws - rand_num
-            we = we - rand_num
+            #rand_num = randint(0, 15)
+            #if args.rand_window is not None:
+            #    rand_num = args.rand_window
+            #print("rand num is {}".format(rand_num))
+            #ws = ws - rand_num
+            #we = we - rand_num
         else:
             raise TypeError("read_type not set in truncate_sequence")
 
+    print("ts {} te {} ws {} we {} args.rand_window {} args.truncate_both_sides {}".format(ts, te, ws, we, args.rand_window, args.truncate_both_sides))
     if te:
         new_seq = seq[0:-seq_diff]
     elif ts:
@@ -347,47 +411,182 @@ def make_ds_read(args, seq, barcode, read_type=None):
 # AAAAAEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE<EEEEEEEEEEEAEEEEEEEEEAEEEEEEEEEEEEEEEEEEEE<EEEEEEEEEEEEEEEEEAEEEEE<EEEEEEEEEEEEEEEEEAE<<AA
 
 
-def make_family(header, seq, args):
+def make_family(header, seq, args, num_families):
+    print("START make_family header {} seq {} args {}".format(header, seq, args))
     if args.fwbarcode:
         fwbarcode = args.fwbarcode
     else:
         fwbarcode = random_sequence(args.barcode_length)
-    for_ds_read = make_ds_read(args, seq, fwbarcode, '5')
     if args.rvbarcode:
         rvbarcode = args.rvbarcode
     else:
         rvbarcode = random_sequence(args.barcode_length)
-    rev_ds_read = make_ds_read(args, seq, rvbarcode, '3')
+
+    while rvbarcode == fwbarcode:
+        rvbarcode = random_sequence(args.barcode_length)
+
+    if rvbarcode > fwbarcode:
+        hold = rvbarcode
+        rvbarcode = fwbarcode
+        fwbarcode = hold
+
     fullbarcode = fwbarcode + rvbarcode
-    print("make_family header {} seq {} args {}".format(header, seq, args))
+    # set up number of reads
     if args.min_num_reads > args.max_num_reads:
         raise TypeError("Incorrect value of min_num_reads or max_num_reads")
     num_reads = randint(args.min_num_reads, args.max_num_reads)
     if args.num_reads:
         num_reads = args.num_reads
+
+    # set up number of flipped
+    if args.min_num_flipped > args.max_num_flipped:
+        raise TypeError("Incorrect value of min_num_flipped or max_num_flipped")
+    num_flipped = randint(args.min_num_flipped, args.max_num_flipped)
+    # must also be half or less of the num_reads
+    if num_flipped > num_reads/2:
+        print("changing num_flipped from {} to {}".format(num_flipped, int(num_reads/2)))
+        num_flipped = int(num_reads/2)
+    if args.num_flipped:
+        num_flipped = args.num_flipped
+
+
     if args.map_file:
-        args.map_file.write("{0}	{1}	{2}	{3}	{4}\n".format(
-            header, args.num_families, num_reads, fwbarcode, rvbarcode))
-    # print("making {0} reads for {1} fwbarcode {2} rvbarcode {3} header"
-    # .format(num_reads, fwbarcode, rvbarcode, header))
-    for_quality = args.quality if args.quality else fastq_quality(
-        args, len(for_ds_read))
-    rev_quality = args.quality if args.quality else fastq_quality(
-        args, len(rev_ds_read))
-    family = []
-    family_seq2 = []
+        args.map_file.write("{0}	{1}	{2}	{3}	{4}	{5}\n".format(
+            header, num_families, num_reads, num_flipped, fwbarcode,
+            rvbarcode))
+    print("making {0} reads for fwbarcode {1} rvbarcode {2} header {3}"
+     .format(num_reads, fwbarcode, rvbarcode, header))
+    print("num_flipped {}".format(num_flipped))
+    read_set = []
+    read_set2 = []
+    read_names_top = []
+    read_names_bottom = []
+    #  the 5->3 read for the top strand is called top_five_for_ds_read
+    #  the 3->5 read for the top strand is called top_three_for_ds_read
+    top_five_for_ds_read = make_ds_read(args, seq, fwbarcode, '5')
+    top_three_for_ds_read = make_ds_read(args, seq, fwbarcode, '3')
+    top_five_rev_ds_read = make_ds_read(args, seq, rvbarcode, '5')
+    top_three_rev_ds_read = make_ds_read(args, seq, rvbarcode, '3')
+
+    top_five_quality = args.quality if args.quality else fastq_quality(
+        args, len(top_five_for_ds_read))
+    top_three_quality = args.quality if args.quality else fastq_quality(
+        args, len(top_three_for_ds_read))
+    #  the 5->3 read for the bottom strand is called bottom_three_for_ds_read
+    #  the 3->5 read for the bottom strand is called bottom_five_for_ds_read
+    bSeq = Seq(seq)
+    rev_seq = bSeq.reverse_complement()
+    print("rev_seq {}".format(rev_seq))
+    print("making bottom_for_ds_read")
+    bottom_three_for_ds_read = make_ds_read(args, seq, fwbarcode, '3')
+    bottom_five_for_ds_read = make_ds_read(args, seq, fwbarcode, '5')
+    print("bottom_three_for_ds_read {} bottom_five_for_ds_read {}"
+            .format(bottom_three_for_ds_read,bottom_five_for_ds_read))
+
+    print("making bottom_rev_for_ds_read")
+    bottom_five_rev_ds_read = make_ds_read(args, seq, rvbarcode, '5')
+    bottom_three_rev_ds_read = make_ds_read(args, seq, rvbarcode, '3')
+    print("bottom_three_rev_ds_read {} bottom_five_rev_ds_read {}"
+            .format(bottom_three_rev_ds_read,bottom_five_rev_ds_read))
+    bottom_three_quality = args.quality if args.quality else fastq_quality(
+        args, len(bottom_three_for_ds_read))
+    bottom_five_quality = args.quality if args.quality else fastq_quality(
+        args, len(bottom_five_for_ds_read))
+
+    # we have num_reads to produce the following:
+    count_flipped = 0
     for i in range(1, num_reads + 1):
-        (fastq_header, paired_header) = fastq_entry_header(args, header,
-                                                           fullbarcode)
-        family.append(fastq_header)
-        family.append(for_ds_read)
-        family.append("+")
-        family.append(for_quality)
-        family_seq2.append(paired_header)
-        family_seq2.append(rev_ds_read)
-        family_seq2.append("+")
-        family_seq2.append(rev_quality)
-    return family, family_seq2
+        # add a reversed read if we have flipped to add
+        if (num_flipped > count_flipped):
+            count_flipped =+ 1
+            (bottom_fastq_header, bottom_paired_header) = fastq_entry_header(args,
+                                                            header, fullbarcode)
+            (bottom_fastq_header2, bottom_paired_header2) = fastq_entry_header(args,
+                                                            header, fullbarcode)
+            print("bot fastq_head {}, bot paired_head {}, head {} fullbarcode {}"
+                    .format(bottom_fastq_header, bottom_paired_header, header, fullbarcode))
+            print("bot fastq_head2 {}, bot paired_head2 {}, head {} fullbarcode {}"
+                    .format(bottom_fastq_header2, bottom_paired_header2, header, fullbarcode))
+            # in order to have the proper barcodes, we need family 1 to have for and family2 to have rev
+            # read set 1 needs fastq_header and bottom_three_for_ds_read
+            # read set 2 needs fastq_header and bottom_five_rev_ds_read
+            # read set 1 needs fastq_header2 and bottom_five_for_ds_read
+            # read set 2 needs fastq_header2 and bottom_three_rev_ds_read
+            read_names_bottom.append(bottom_fastq_header)
+            read_names_bottom.append(bottom_fastq_header2)
+            read_names_bottom.append(bottom_paired_header)
+            read_names_bottom.append(bottom_paired_header2)
+
+            # each read set needs to have a bottom_three and a bottom_five
+            # set up the ab reads
+            read_set.append(bottom_fastq_header)
+            read_set.append(bottom_three_for_ds_read)
+            read_set.append("+")
+            read_set.append(bottom_three_quality)
+
+            read_set2.append(bottom_paired_header)
+            read_set2.append(bottom_five_rev_ds_read)
+            read_set2.append("+")
+            read_set2.append(bottom_five_quality)
+            print("forward:\n")
+            print("{}\n{}".format(bottom_fastq_header, bottom_three_for_ds_read))
+            print("{}\n{}".format(bottom_paired_header, bottom_five_for_ds_read))
+            print("reverse:\n")
+            print("{}\n{}".format(bottom_fastq_header2, bottom_five_rev_ds_read))
+            print("{}\n{}".format(bottom_paired_header2, bottom_three_rev_ds_read))
+
+            # set up ba reversed
+            read_set.append(bottom_fastq_header2)
+            read_set.append(bottom_three_rev_ds_read)
+            read_set.append("+")
+            read_set.append(bottom_three_quality)
+
+            read_set2.append(bottom_paired_header2)
+            read_set2.append(bottom_five_for_ds_read)
+            read_set2.append("+")
+            read_set2.append(bottom_five_quality)
+        else:
+            (fastq_header, paired_header) = fastq_entry_header(args, header,
+                                                               fullbarcode)
+            (fastq_header2, paired_header2) = fastq_entry_header(args, header,
+                                                               fullbarcode)
+            print("fastq_header {}, paired_header {}, header {} fullbarcode {}"
+                    .format(fastq_header, paired_header, header, fullbarcode))
+            read_names_top.append(fastq_header)
+            read_names_top.append(paired_header)
+            read_names_top.append(fastq_header2)
+            read_names_top.append(paired_header2)
+
+            # read set 1 needs fastq_header2 and top_five_for_ds_read
+            # read set 2 needs fastq_header2 and top_three_rev_ds_read
+            # read set 1 needs fastq_header and top_three_for_ds_read
+            # read set 2 needs fastq_header and top_five_rev_ds_read
+            # each read set needs to have a top_three and a top_five
+            # set up the ab reads
+            read_set.append(fastq_header)
+            read_set.append(top_five_for_ds_read)
+            read_set.append("+")
+            read_set.append(top_five_quality)
+
+            read_set2.append(paired_header)
+            read_set2.append(top_three_rev_ds_read)
+            read_set2.append("+")
+            read_set2.append(top_three_quality)
+
+            # set up the ba reads
+            read_set.append(fastq_header2)
+            read_set.append(top_five_rev_ds_read)
+            read_set.append("+")
+            read_set.append(top_five_quality)
+
+            read_set2.append(paired_header2)
+            read_set2.append(top_three_for_ds_read)
+            read_set2.append("+")
+            read_set2.append(top_three_quality)
+
+    print("fullbarcode {} read_names_top {} read_names_bottom {}".format(fullbarcode, read_names_top, read_names_bottom))
+    args.tag_file.write("\t".join([fullbarcode, ",".join(read_names_top), ",".join(read_names_bottom)]) + "\n")
+    return read_set, read_set2
 
 
 # quality scores are PHRED scores from 0-41 converted into a character +33
