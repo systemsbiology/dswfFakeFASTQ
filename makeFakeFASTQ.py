@@ -131,9 +131,9 @@ def main(argv):
     parser.add_argument('--barcode_length', '-bcl', type=int, required=False,
                         help='Length of Barcode at beginning and end of\
                         sequence. Default: 10')
-    parser.add_argument('--fwbarcode', '-fwbc', type=int, required=False,
+    parser.add_argument('--barcode_a', '-fwbc', type=int, required=False,
                         help='Forward barcode string to use. Default: None')
-    parser.add_argument('--rvbarcode', '-rvbc', type=int, required=False,
+    parser.add_argument('--barcode_b', '-rvbc', type=int, required=False,
                         help='Reverse barcode string to use. Default: None')
     parser.add_argument('--spacer_length', '-sl', type=int, required=False,
                         help='Length of Spacer between Barcode and sequence.\
@@ -266,7 +266,8 @@ def main(argv):
         args.map_file.write("\t".join(["FASTA Header", "Num Familes",
                                        "Num Reads", "Num Flipped", "Barcode"])
                                        + "\n")
-    if args.tag_file is 1:
+    print("args tag file {}".format(args.tag_file))
+    if args.tag_file == 1:
         args.tag_file = gzip.open(args.prefix + '_tags.txt.gz', 'wb')
         args.tag_file.write('VERSION\t'+str(VERSION)+"\n")
         args.tag_file.write("\t".join(["FASTA Header", "Barcode","Reads"]) 
@@ -296,13 +297,14 @@ def main(argv):
 
 def make_clan(header, seq, args):
     if args.min_num_families > args.max_num_families:
-        raise TypeError("Incorrect value of min_num_families or max_num_families")
+        raise ValueError("Incorrect value of min_num_families or max_num_families")
+    num_families = args.num_families
     if args.num_families == None:
         num_families = randint(args.min_num_families, args.max_num_families)
-    print("making {0} families for {1}".format(num_families, header))
     clan_seq = []
     clan_seq2 = []
     for f in range(1, num_families + 1):
+        print("making {0} families for {1}".format(num_families, header))
         family_seq1, family_seq2 = make_family(header, seq, args, num_families)
         clan_seq.append(family_seq1)
         clan_seq2.append(family_seq2)
@@ -368,7 +370,7 @@ def truncate_sequence(args, seq, count=None, read_type=None):
             #ws = ws - rand_num
             #we = we - rand_num
         else:
-            raise TypeError("read_type not set in truncate_sequence")
+            raise ValueError("read_type not set in truncate_sequence")
 
     print("ts {} te {} ws {} we {} args.rand_window {} args.truncate_both_sides {}".format(ts, te, ws, we, args.rand_window, args.truncate_both_sides))
     if te:
@@ -382,7 +384,7 @@ def truncate_sequence(args, seq, count=None, read_type=None):
             if cnt_front:
                 new_seq = seq[cnt_both_sides + cnt_front:-cnt_both_sides]
     else:
-        raise TypeError("no truncate type specified")
+        raise ValueError("no truncate type specified")
     return new_seq
 
 
@@ -413,34 +415,34 @@ def make_ds_read(args, seq, barcode, read_type=None):
 
 def make_family(header, seq, args, num_families):
     print("START make_family header {} seq {} args {}".format(header, seq, args))
-    if args.fwbarcode:
-        fwbarcode = args.fwbarcode
+    if args.barcode_a:
+        barcode_a = args.barcode_a
     else:
-        fwbarcode = random_sequence(args.barcode_length)
-    if args.rvbarcode:
-        rvbarcode = args.rvbarcode
+        barcode_a = random_sequence(args.barcode_length)
+    if args.barcode_b:
+        barcode_b = args.barcode_b
     else:
-        rvbarcode = random_sequence(args.barcode_length)
+        barcode_b = random_sequence(args.barcode_length)
 
-    while rvbarcode == fwbarcode:
-        rvbarcode = random_sequence(args.barcode_length)
+    while barcode_b == barcode_a:
+        barcode_b = random_sequence(args.barcode_length)
 
-    if rvbarcode > fwbarcode:
-        hold = rvbarcode
-        rvbarcode = fwbarcode
-        fwbarcode = hold
+    if barcode_b > barcode_a:
+        hold = barcode_b
+        barcode_b = barcode_a
+        barcode_a = hold
 
-    fullbarcode = fwbarcode + rvbarcode
+    fullbarcode = barcode_a + barcode_b
     # set up number of reads
     if args.min_num_reads > args.max_num_reads:
-        raise TypeError("Incorrect value of min_num_reads or max_num_reads")
+        raise ValueError("Incorrect value of min_num_reads or max_num_reads")
     num_reads = randint(args.min_num_reads, args.max_num_reads)
     if args.num_reads:
         num_reads = args.num_reads
 
     # set up number of flipped
     if args.min_num_flipped > args.max_num_flipped:
-        raise TypeError("Incorrect value of min_num_flipped or max_num_flipped")
+        raise ValueError("Incorrect value of min_num_flipped or max_num_flipped")
     num_flipped = randint(args.min_num_flipped, args.max_num_flipped)
     # must also be half or less of the num_reads
     if num_flipped > num_reads/2:
@@ -449,24 +451,29 @@ def make_family(header, seq, args, num_families):
     if args.num_flipped:
         num_flipped = args.num_flipped
 
-
     if args.map_file:
         args.map_file.write("{0}	{1}	{2}	{3}	{4}	{5}\n".format(
-            header, num_families, num_reads, num_flipped, fwbarcode,
-            rvbarcode))
-    print("making {0} reads for fwbarcode {1} rvbarcode {2} header {3}"
-     .format(num_reads, fwbarcode, rvbarcode, header))
+            header, num_families, num_reads, num_flipped, barcode_a,
+            barcode_b))
+    print("making {0} reads for barcode_a {1} barcode_b {2} header {3}"
+     .format(num_reads, barcode_a, barcode_b, header))
     print("num_flipped {}".format(num_flipped))
     read_set = []
     read_set2 = []
     read_names_top = []
     read_names_bottom = []
+    bSeq = Seq(seq)
+    rev_seq = bSeq.reverse_complement()
     #  the 5->3 read for the top strand is called top_five_for_ds_read
     #  the 3->5 read for the top strand is called top_three_for_ds_read
-    top_five_for_ds_read = make_ds_read(args, seq, fwbarcode, '5')
-    top_three_for_ds_read = make_ds_read(args, seq, fwbarcode, '3')
-    top_five_rev_ds_read = make_ds_read(args, seq, rvbarcode, '5')
-    top_three_rev_ds_read = make_ds_read(args, seq, rvbarcode, '3')
+    # top_five_for_ds_read is ab:2
+    top_five_for_ds_read = make_ds_read(args, seq, barcode_a, '5')
+    # top_three_for_ds_read is ab:1
+    top_three_for_ds_read = make_ds_read(args, rev_seq, barcode_a, '3')
+    # top_five_rev_ds_read is ba:1
+    top_five_rev_ds_read = make_ds_read(args, seq, barcode_b, '5')
+    # top_three_rev_ds_read is ba:2
+    top_three_rev_ds_read = make_ds_read(args, rev_seq, barcode_b, '3')
 
     top_five_quality = args.quality if args.quality else fastq_quality(
         args, len(top_five_for_ds_read))
@@ -474,18 +481,20 @@ def make_family(header, seq, args, num_families):
         args, len(top_three_for_ds_read))
     #  the 5->3 read for the bottom strand is called bottom_three_for_ds_read
     #  the 3->5 read for the bottom strand is called bottom_five_for_ds_read
-    bSeq = Seq(seq)
-    rev_seq = bSeq.reverse_complement()
     print("rev_seq {}".format(rev_seq))
     print("making bottom_for_ds_read")
-    bottom_three_for_ds_read = make_ds_read(args, seq, fwbarcode, '3')
-    bottom_five_for_ds_read = make_ds_read(args, seq, fwbarcode, '5')
+    # bottom_five_for_ds_read is ab:1
+    bottom_five_for_ds_read = make_ds_read(args, rev_seq, barcode_a, '5')
+    # bottom_three_for_ds_read is ab:2
+    bottom_three_for_ds_read = make_ds_read(args, seq, barcode_a, '3')
     print("bottom_three_for_ds_read {} bottom_five_for_ds_read {}"
             .format(bottom_three_for_ds_read,bottom_five_for_ds_read))
 
     print("making bottom_rev_for_ds_read")
-    bottom_five_rev_ds_read = make_ds_read(args, seq, rvbarcode, '5')
-    bottom_three_rev_ds_read = make_ds_read(args, seq, rvbarcode, '3')
+    # bottom_five_rev_ds_read is ba:2
+    bottom_five_rev_ds_read = make_ds_read(args, rev_seq, barcode_b, '5')
+    # bottom_three_rev_ds_read is ba:1
+    bottom_three_rev_ds_read = make_ds_read(args, seq, barcode_b, '3')
     print("bottom_three_rev_ds_read {} bottom_five_rev_ds_read {}"
             .format(bottom_three_rev_ds_read,bottom_five_rev_ds_read))
     bottom_three_quality = args.quality if args.quality else fastq_quality(
@@ -495,7 +504,9 @@ def make_family(header, seq, args, num_families):
 
     # we have num_reads to produce the following:
     count_flipped = 0
+    print("making {} num_reads".format(num_reads))
     for i in range(1, num_reads + 1):
+        print("read {}".format(i))
         # add a reversed read if we have flipped to add
         if (num_flipped > count_flipped):
             count_flipped =+ 1
@@ -518,6 +529,8 @@ def make_family(header, seq, args, num_families):
             read_names_bottom.append(bottom_paired_header2)
 
             # each read set needs to have a bottom_three and a bottom_five
+            # ab1 and ba2 need to match sequence
+            # ab2 and ba1 need to match sequence
             # set up the ab reads
             read_set.append(bottom_fastq_header)
             read_set.append(bottom_three_for_ds_read)
@@ -585,7 +598,10 @@ def make_family(header, seq, args, num_families):
             read_set2.append(top_three_quality)
 
     print("fullbarcode {} read_names_top {} read_names_bottom {}".format(fullbarcode, read_names_top, read_names_bottom))
-    args.tag_file.write("\t".join([fullbarcode, ",".join(read_names_top), ",".join(read_names_bottom)]) + "\n")
+    print("read_set  {}".format(read_set))
+    print("read_set2 {}".format(read_set2))
+    if args.tag_file is 1:
+        args.tag_file.write("\t".join([fullbarcode, ",".join(read_names_top), ",".join(read_names_bottom)]) + "\n")
     return read_set, read_set2
 
 
