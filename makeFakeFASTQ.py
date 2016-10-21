@@ -119,10 +119,6 @@ QUAL_SET = {'high': [35, 41], 'medium': [23, 30], 'low': [3, 15]}
 #  There are always paired end reads, so one 5->3 and one 3->5
 #  make_clan makes multiple families via calls to make_family
 #  make_family makes multiple paired end reads
-#  the 5->3 read for the top strand is called top_five_for_ds_read
-#  the 3->5 read for the top strand is called top_three_for_ds_read
-#  the 5->3 read for the bottom strand is called bottom_five_for_ds_read
-#  the 3->5 read for the bottom strand is called bottom_three_for_ds_read
 
 def main(argv):
     parser = argparse.ArgumentParser(description=DESCRIPTION)
@@ -463,139 +459,66 @@ def make_family(header, seq, args, num_families):
     read_names_top = []
     read_names_bottom = []
     bSeq = Seq(seq)
-    rev_seq = bSeq.reverse_complement()
-    #  the 5->3 read for the top strand is called top_five_for_ds_read
-    #  the 3->5 read for the top strand is called top_three_for_ds_read
-    # top_five_for_ds_read is ab:2
-    top_five_for_ds_read = make_ds_read(args, seq, barcode_a, '5')
-    # top_three_for_ds_read is ab:1
-    top_three_for_ds_read = make_ds_read(args, rev_seq, barcode_a, '3')
-    # top_five_rev_ds_read is ba:1
-    top_five_rev_ds_read = make_ds_read(args, seq, barcode_b, '5')
-    # top_three_rev_ds_read is ba:2
-    top_three_rev_ds_read = make_ds_read(args, rev_seq, barcode_b, '3')
+    # To simulate different sequences from one fasta sequence
+    # ab:1 and ba:2 use 5' sequence
+    # ab:2 and ba:1 use 3' sequence
+    # five_a_ds_read is ab:1 and ba:2
+    five_a_ds_read = make_ds_read(args, seq, barcode_a, '5')
+    # three_b_ds_read is ba:1 and ab:2
+    three_b_ds_read = make_ds_read(args, seq, barcode_b, '3')
 
-    top_five_quality = args.quality if args.quality else fastq_quality(
-        args, len(top_five_for_ds_read))
-    top_three_quality = args.quality if args.quality else fastq_quality(
-        args, len(top_three_for_ds_read))
-    #  the 5->3 read for the bottom strand is called bottom_three_for_ds_read
-    #  the 3->5 read for the bottom strand is called bottom_five_for_ds_read
-    print("rev_seq {}".format(rev_seq))
-    print("making bottom_for_ds_read")
-    # bottom_five_for_ds_read is ab:1
-    bottom_five_for_ds_read = make_ds_read(args, rev_seq, barcode_a, '5')
-    # bottom_three_for_ds_read is ab:2
-    bottom_three_for_ds_read = make_ds_read(args, seq, barcode_a, '3')
-    print("bottom_three_for_ds_read {} bottom_five_for_ds_read {}"
-            .format(bottom_three_for_ds_read,bottom_five_for_ds_read))
+    five_quality = args.quality if args.quality else fastq_quality(
+        args, len(five_a_ds_read))
+    three_quality = args.quality if args.quality else fastq_quality(
+        args, len(three_b_ds_read))
 
-    print("making bottom_rev_for_ds_read")
-    # bottom_five_rev_ds_read is ba:2
-    bottom_five_rev_ds_read = make_ds_read(args, rev_seq, barcode_b, '5')
-    # bottom_three_rev_ds_read is ba:1
-    bottom_three_rev_ds_read = make_ds_read(args, seq, barcode_b, '3')
-    print("bottom_three_rev_ds_read {} bottom_five_rev_ds_read {}"
-            .format(bottom_three_rev_ds_read,bottom_five_rev_ds_read))
-    bottom_three_quality = args.quality if args.quality else fastq_quality(
-        args, len(bottom_three_for_ds_read))
-    bottom_five_quality = args.quality if args.quality else fastq_quality(
-        args, len(bottom_five_for_ds_read))
 
     # we have num_reads to produce the following:
-    count_flipped = 0
     print("making {} num_reads".format(num_reads))
     for i in range(1, num_reads + 1):
         print("read {}".format(i))
         # add a reversed read if we have flipped to add
-        if (num_flipped > count_flipped):
-            count_flipped =+ 1
-            (bottom_fastq_header, bottom_paired_header) = fastq_entry_header(args,
-                                                            header, fullbarcode)
-            (bottom_fastq_header2, bottom_paired_header2) = fastq_entry_header(args,
-                                                            header, fullbarcode)
-            print("bot fastq_head {}, bot paired_head {}, head {} fullbarcode {}"
-                    .format(bottom_fastq_header, bottom_paired_header, header, fullbarcode))
-            print("bot fastq_head2 {}, bot paired_head2 {}, head {} fullbarcode {}"
-                    .format(bottom_fastq_header2, bottom_paired_header2, header, fullbarcode))
-            # in order to have the proper barcodes, we need family 1 to have for and family2 to have rev
-            # read set 1 needs fastq_header and bottom_three_for_ds_read
-            # read set 2 needs fastq_header and bottom_five_rev_ds_read
-            # read set 1 needs fastq_header2 and bottom_five_for_ds_read
-            # read set 2 needs fastq_header2 and bottom_three_rev_ds_read
-            read_names_bottom.append(bottom_fastq_header)
-            read_names_bottom.append(bottom_fastq_header2)
-            read_names_bottom.append(bottom_paired_header)
-            read_names_bottom.append(bottom_paired_header2)
+        (fastq_header, paired_header) = fastq_entry_header(args,
+                                                        header, fullbarcode)
+        (fastq_header2, paired_header2) = fastq_entry_header(args,
+                                                        header, fullbarcode)
+        print("bot fastq_head {}, bot paired_head {}, head {} fullbarcode {}"
+                .format(fastq_header, paired_header, header, fullbarcode))
+        print("bot fastq_head2 {}, bot paired_head2 {}, head {} fullbarcode {}"
+                .format(fastq_header2, paired_header2, header, fullbarcode))
+        #both read sets need both five_a_ds_read and three_b_ds_read with different headers
+        read_names_bottom.append(fastq_header)   # ab1
+        read_names_bottom.append(fastq_header2)  # ab2
+        read_names_bottom.append(paired_header)  # ba1
+        read_names_bottom.append(paired_header2) # ba2
 
-            # each read set needs to have a bottom_three and a bottom_five
-            # ab1 and ba2 need to match sequence
-            # ab2 and ba1 need to match sequence
-            # set up the ab reads
-            read_set.append(bottom_fastq_header)
-            read_set.append(bottom_three_for_ds_read)
-            read_set.append("+")
-            read_set.append(bottom_three_quality)
+        # add ab:1 and ba:1 to read_set
+        read_set.append(fastq_header)
+        read_set.append(five_a_ds_read)
+        read_set.append("+")
+        read_set.append(five_quality)
 
-            read_set2.append(bottom_paired_header)
-            read_set2.append(bottom_five_rev_ds_read)
-            read_set2.append("+")
-            read_set2.append(bottom_five_quality)
-            print("forward:\n")
-            print("{}\n{}".format(bottom_fastq_header, bottom_three_for_ds_read))
-            print("{}\n{}".format(bottom_paired_header, bottom_five_for_ds_read))
-            print("reverse:\n")
-            print("{}\n{}".format(bottom_fastq_header2, bottom_five_rev_ds_read))
-            print("{}\n{}".format(bottom_paired_header2, bottom_three_rev_ds_read))
+        read_set.append(fastq_header2)
+        read_set.append(three_b_ds_read)
+        read_set.append("+")
+        read_set.append(three_quality)
 
-            # set up ba reversed
-            read_set.append(bottom_fastq_header2)
-            read_set.append(bottom_three_rev_ds_read)
-            read_set.append("+")
-            read_set.append(bottom_three_quality)
+        # add ab:2 and ba:2 to read_set2
+        read_set2.append(paired_header)
+        read_set2.append(three_b_ds_read)
+        read_set2.append("+")
+        read_set2.append(three_quality)
 
-            read_set2.append(bottom_paired_header2)
-            read_set2.append(bottom_five_for_ds_read)
-            read_set2.append("+")
-            read_set2.append(bottom_five_quality)
-        else:
-            (fastq_header, paired_header) = fastq_entry_header(args, header,
-                                                               fullbarcode)
-            (fastq_header2, paired_header2) = fastq_entry_header(args, header,
-                                                               fullbarcode)
-            print("fastq_header {}, paired_header {}, header {} fullbarcode {}"
-                    .format(fastq_header, paired_header, header, fullbarcode))
-            read_names_top.append(fastq_header)
-            read_names_top.append(paired_header)
-            read_names_top.append(fastq_header2)
-            read_names_top.append(paired_header2)
-
-            # read set 1 needs fastq_header2 and top_five_for_ds_read
-            # read set 2 needs fastq_header2 and top_three_rev_ds_read
-            # read set 1 needs fastq_header and top_three_for_ds_read
-            # read set 2 needs fastq_header and top_five_rev_ds_read
-            # each read set needs to have a top_three and a top_five
-            # set up the ab reads
-            read_set.append(fastq_header)
-            read_set.append(top_five_for_ds_read)
-            read_set.append("+")
-            read_set.append(top_five_quality)
-
-            read_set2.append(paired_header)
-            read_set2.append(top_three_rev_ds_read)
-            read_set2.append("+")
-            read_set2.append(top_three_quality)
-
-            # set up the ba reads
-            read_set.append(fastq_header2)
-            read_set.append(top_five_rev_ds_read)
-            read_set.append("+")
-            read_set.append(top_five_quality)
-
-            read_set2.append(paired_header2)
-            read_set2.append(top_three_for_ds_read)
-            read_set2.append("+")
-            read_set2.append(top_three_quality)
+        read_set2.append(paired_header2)
+        read_set2.append(five_a_ds_read)
+        read_set2.append("+")
+        read_set2.append(five_quality)
+        print("seq1:\n")
+        print("{}\n{}".format(fastq_header, five_a_ds_read))
+        print("{}\n{}".format(fastq_header2,three_b_ds_read))
+        print("seq2:\n")
+        print("{}\n{}".format(paired_header, three_b_ds_read))
+        print("{}\n{}".format(paired_header2, five_a_ds_read))
 
     print("fullbarcode {} read_names_top {} read_names_bottom {}".format(fullbarcode, read_names_top, read_names_bottom))
     print("read_set  {}".format(read_set))
