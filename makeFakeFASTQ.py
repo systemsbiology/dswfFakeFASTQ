@@ -153,6 +153,8 @@ def main(argv):
                         Default: 1')
     parser.add_argument('--num_reads', '-nr', type=int, required=False,
                         help='Number of reads per family.')
+    parser.add_argument('--wobble_reads', '-wr', type=int, required=False,
+                        help='Wobble reads to create a distribution')
     parser.add_argument('--read_length', '-rl', type=int, required=False,
                         help='Length of sequence in FASTQ output.\
                         Default: 156')
