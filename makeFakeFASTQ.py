@@ -4,10 +4,11 @@ import sys
 import time
 import argparse
 import gzip
+import warnings
 from random import randint, sample
 from Bio.Seq import Seq # used for reverse_complement()
 
-VERSION = 0.05
+VERSION = 0.06
 
 # To generate duplex sequencing simulated data, we start with N number of
 # molecules of double stranded DNA.  These are represented by the number of
@@ -21,11 +22,11 @@ VERSION = 0.05
 # This program assumes that the FASTA file contains FORWARD strand
 # sequence and thus generates the reverse complement.
 
-# ab:1 is a - FORWARD - b:1
-# ab:2 is a - REVERSE - b:2
+# ab:1 is a - FORWARD - b where FORWARD is in seq1
+# ab:2 is a - REVERSE - b where REVERSE is in seq2
 
-# ba:1 is b - REVERSE - a:1
-# ba:2 is b - FORWARD - a:2
+# ba:1 is b - REVERSE - a where REVERSE is in seq1
+# ba:2 is b - FORWARD - a where FORWARD is in seq2
 
 # We combine ab:1 and ba:2 to get the FORWARD sequence
 # We combine ab:2 and ba:1 to get the REVERSE sequence
@@ -96,7 +97,8 @@ OPT_DEFAULTS = {
     'min_num_reads': 3, 'max_num_reads': 20,
     'min_num_flipped': 2, 'max_num_flipped': 10, # defaults to half of reads
     'read_length': 156, 'buffer_both_sides': 0,
-    'buffer_end': 1, 'truncate_by_read': 1, 'rand_window': None,
+    'buffer_end': 1, 'truncate_by_read': 1,
+    'wobble_read': None, 'rand_window': None,
     'truncate_both_sides': 0, 'truncate_end': 0, 'truncate_start': 0,
     'prefix': 'DSWF', 'instrument': 'NS500770', 'flow_cell': 'H5VNJAFXX',
     'x_min': 1015, 'x_max': 26894, 'y_min': 1017, 'y_max': 20413,
@@ -251,7 +253,6 @@ def main(argv):
         args.max_num_families = args.min_num_families
     if args.min_num_flipped > args.max_num_flipped:
         args.max_num_flipped = args.min_num_flipped
-    print("args type is {0}".format(type(args)))
 
     fasta = open(args.fasta)
     seq1_file = gzip.open(args.prefix + '_seq1.fastq.gz', 'wb')
@@ -260,16 +261,14 @@ def main(argv):
         args.map_file = gzip.open(args.prefix + '_map.txt.gz', 'wb')
         args.map_file.write("VERSION\t"+str(VERSION)+"\n")
         args.map_file.write("\t".join(["FASTA Header", "Num Familes",
-                                       "Num Reads", "Num Flipped", "Barcode"])
-                                       + "\n")
-    print("args tag file {}".format(args.tag_file))
+                            "Num Reads", "Num Flipped", "Barcode A",
+                            "Barcode B", "Full Barcode"]) + "\n")
     if args.tag_file == 1:
         args.tag_file = gzip.open(args.prefix + '_tags.txt.gz', 'wb')
         args.tag_file.write('VERSION\t'+str(VERSION)+"\n")
-        args.tag_file.write("\t".join(["FASTA Header", "Barcode","Reads"]) 
+        args.tag_file.write("\t".join(["FASTA Header", "Barcode","Reads"])
                                       + "\n")
 
-    print('opened file ' + args.fasta)
     while True:
         header = fasta.readline().rstrip('\r\n')
         line = fasta.readline()
@@ -300,7 +299,6 @@ def make_clan(header, seq, args):
     clan_seq = []
     clan_seq2 = []
     for f in range(1, num_families + 1):
-        print("making {0} families for {1}".format(num_families, header))
         family_seq1, family_seq2 = make_family(header, seq, args, num_families)
         clan_seq.append(family_seq1)
         clan_seq2.append(family_seq2)
@@ -350,25 +348,25 @@ def truncate_sequence(args, seq, count=None, read_type=None):
     ws = seq_diff  # window start
     we = len(seq)  # window end
     if args.truncate_by_read:
+        # truncate the end of 5' reads
         if read_type == '5':
             ts = 0
             te = 1
+        # truncate the start of 3' reads
         elif read_type == '3':
             ts = 1
             te = 0
-            # taking the wobble out so that UnifiedConsensusMaker works 20160825
-            # if we're making a 3' read we want to move the window randomly a
+            if args.wobble_read:
+            # if we're making wobbly reads 3' read we want to move the window randomly a
             # little bit to the 5' to make bwa happy with the read distribution
-            #rand_num = randint(0, 15)
-            #if args.rand_window is not None:
-            #    rand_num = args.rand_window
-            #print("rand num is {}".format(rand_num))
-            #ws = ws - rand_num
-            #we = we - rand_num
+                rand_num = randint(0, 15)
+                if args.rand_window is not None:
+                    rand_num = args.rand_window
+                ws = ws - rand_num
+                we = we - rand_num
         else:
             raise ValueError("read_type not set in truncate_sequence")
 
-    print("ts {} te {} ws {} we {} args.rand_window {} args.truncate_both_sides {}".format(ts, te, ws, we, args.rand_window, args.truncate_both_sides))
     if te:
         new_seq = seq[0:-seq_diff]
     elif ts:
@@ -383,7 +381,11 @@ def truncate_sequence(args, seq, count=None, read_type=None):
         raise ValueError("no truncate type specified")
     return new_seq
 
-
+# make_ds_read
+# Create a duplex sequence read with a barcode, spacer, then sequence
+# based on read length required and spacer length
+# read_type is used to truncate the sequence from the left or right side
+# if the read is longer than the read length required
 def make_ds_read(args, seq, barcode, read_type=None):
     ds_spacer = 'T' * args.spacer_length
     ds_length = len(ds_spacer) + len(barcode)
@@ -407,28 +409,10 @@ def make_ds_read(args, seq, barcode, read_type=None):
 # GGAAANGTGCTGCCCATTACAAAATTAAATCAAACTCAACCTACCACTCACCTGAAATGCCTATGGTTCAAAGTAATAAGATTCATGAGACTTCTCTAAAAGTGGATTATTATGATCAGAAAGAATATGATCCACATTGTATGGTTTTTAGGCACC
 # +
 # AAAAAEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE<EEEEEEEEEEEAEEEEEEEEEAEEEEEEEEEEEEEEEEEEEE<EEEEEEEEEEEEEEEEEAEEEEE<EEEEEEEEEEEEEEEEEAE<<AA
-
+# make_family is designed to make a valid DSWF family, so if you ask for num_reads = 1
+# you'll get 4 sequences (ab1, ab2, ba1, ba2).
 
 def make_family(header, seq, args, num_families):
-    print("START make_family header {} seq {} args {}".format(header, seq, args))
-    if args.barcode_a:
-        barcode_a = args.barcode_a
-    else:
-        barcode_a = random_sequence(args.barcode_length)
-    if args.barcode_b:
-        barcode_b = args.barcode_b
-    else:
-        barcode_b = random_sequence(args.barcode_length)
-
-    while barcode_b == barcode_a:
-        barcode_b = random_sequence(args.barcode_length)
-
-    if barcode_b > barcode_a:
-        hold = barcode_b
-        barcode_b = barcode_a
-        barcode_a = hold
-
-    fullbarcode = barcode_a + barcode_b
     # set up number of reads
     if args.min_num_reads > args.max_num_reads:
         raise ValueError("Incorrect value of min_num_reads or max_num_reads")
@@ -442,18 +426,35 @@ def make_family(header, seq, args, num_families):
     num_flipped = randint(args.min_num_flipped, args.max_num_flipped)
     # must also be half or less of the num_reads
     if num_flipped > num_reads/2:
-        print("changing num_flipped from {} to {}".format(num_flipped, int(num_reads/2)))
         num_flipped = int(num_reads/2)
     if args.num_flipped:
         num_flipped = args.num_flipped
 
+    if args.barcode_a:
+        barcode_a = args.barcode_a
+    else:
+        barcode_a = random_sequence(args.barcode_length)
+    if args.barcode_b:
+        barcode_b = args.barcode_b
+    else:
+        barcode_b = random_sequence(args.barcode_length)
+
+    # don't allow barcodes to be equal
+    if barcode_a == barcode_b:
+        warnings.warn("Barcodes are not allowed to be equal.  Setting barcode b to a random sequence.")
+    while barcode_b == barcode_a:
+        barcode_b = random_sequence(args.barcode_length)
+
+    if barcode_b > barcode_a:
+        hold = barcode_b
+        barcode_b = barcode_a
+        barcode_a = hold
+
+    fullbarcode = barcode_a + barcode_b
     if args.map_file:
-        args.map_file.write("{0}	{1}	{2}	{3}	{4}	{5}\n".format(
+        args.map_file.write("{0}	{1}	{2}	{3}	{4}	{5}	{6}\n".format(
             header, num_families, num_reads, num_flipped, barcode_a,
-            barcode_b))
-    print("making {0} reads for barcode_a {1} barcode_b {2} header {3}"
-     .format(num_reads, barcode_a, barcode_b, header))
-    print("num_flipped {}".format(num_flipped))
+            barcode_b, fullbarcode))
     read_set = []
     read_set2 = []
     read_names_top = []
@@ -464,7 +465,9 @@ def make_family(header, seq, args, num_families):
     # ab:2 and ba:1 use 3' sequence
     # five_a_ds_read is ab:1 and ba:2
     five_a_ds_read = make_ds_read(args, seq, barcode_a, '5')
+    five_b_ds_read = make_ds_read(args, seq, barcode_b, '5')
     # three_b_ds_read is ba:1 and ab:2
+    three_a_ds_read = make_ds_read(args, seq, barcode_a, '3')
     three_b_ds_read = make_ds_read(args, seq, barcode_b, '3')
 
     five_quality = args.quality if args.quality else fastq_quality(
@@ -474,57 +477,70 @@ def make_family(header, seq, args, num_families):
 
 
     # we have num_reads to produce the following:
-    print("making {} num_reads".format(num_reads))
+    count_flipped = 0
     for i in range(1, num_reads + 1):
-        print("read {}".format(i))
-        # add a reversed read if we have flipped to add
         (fastq_header, paired_header) = fastq_entry_header(args,
                                                         header, fullbarcode)
         (fastq_header2, paired_header2) = fastq_entry_header(args,
                                                         header, fullbarcode)
-        print("bot fastq_head {}, bot paired_head {}, head {} fullbarcode {}"
-                .format(fastq_header, paired_header, header, fullbarcode))
-        print("bot fastq_head2 {}, bot paired_head2 {}, head {} fullbarcode {}"
-                .format(fastq_header2, paired_header2, header, fullbarcode))
-        #both read sets need both five_a_ds_read and three_b_ds_read with different headers
-        read_names_bottom.append(fastq_header)   # ab1
-        read_names_bottom.append(fastq_header2)  # ab2
-        read_names_bottom.append(paired_header)  # ba1
-        read_names_bottom.append(paired_header2) # ba2
+        # add a reversed read if we have flipped to add
+        if (num_flipped > count_flipped):
+            count_flipped =+ 1
 
-        # add ab:1 and ba:1 to read_set
-        read_set.append(fastq_header)
-        read_set.append(five_a_ds_read)
-        read_set.append("+")
-        read_set.append(five_quality)
+            read_names_bottom.append(fastq_header)   # ab1
+            read_names_bottom.append(fastq_header2)  # ab2
+            read_names_bottom.append(paired_header)  # ba1
+            read_names_bottom.append(paired_header2) # ba2
 
-        read_set.append(fastq_header2)
-        read_set.append(three_b_ds_read)
-        read_set.append("+")
-        read_set.append(three_quality)
+            # add ab:1 and ba:1 to read_set
+            read_set.append(fastq_header)
+            read_set.append(five_a_ds_read)
+            read_set.append("+")
+            read_set.append(five_quality)
 
-        # add ab:2 and ba:2 to read_set2
-        read_set2.append(paired_header)
-        read_set2.append(three_b_ds_read)
-        read_set2.append("+")
-        read_set2.append(three_quality)
+            read_set.append(fastq_header2)
+            read_set.append(three_b_ds_read)
+            read_set.append("+")
+            read_set.append(three_quality)
 
-        read_set2.append(paired_header2)
-        read_set2.append(five_a_ds_read)
-        read_set2.append("+")
-        read_set2.append(five_quality)
-        print("seq1:\n")
-        print("{}\n{}".format(fastq_header, five_a_ds_read))
-        print("{}\n{}".format(fastq_header2,three_b_ds_read))
-        print("seq2:\n")
-        print("{}\n{}".format(paired_header, three_b_ds_read))
-        print("{}\n{}".format(paired_header2, five_a_ds_read))
+            # add ab:2 and ba:2 to read_set2
+            read_set2.append(paired_header)
+            read_set2.append(three_b_ds_read)
+            read_set2.append("+")
+            read_set2.append(three_quality)
 
-    print("fullbarcode {} read_names_top {} read_names_bottom {}".format(fullbarcode, read_names_top, read_names_bottom))
-    print("read_set  {}".format(read_set))
-    print("read_set2 {}".format(read_set2))
+            read_set2.append(paired_header2)
+            read_set2.append(five_a_ds_read)
+            read_set2.append("+")
+            read_set2.append(five_quality)
+        else:
+            # add ab:1 and ba:1 to read_set
+            read_set.append(fastq_header)
+            read_set.append(five_b_ds_read)
+            read_set.append("+")
+            read_set.append(five_quality)
+
+            read_set.append(fastq_header2)
+            read_set.append(three_a_ds_read)
+            read_set.append("+")
+            read_set.append(three_quality)
+
+            # add ab:2 and ba:2 to read_set2
+            read_set2.append(paired_header)
+            read_set2.append(three_a_ds_read)
+            read_set2.append("+")
+            read_set2.append(three_quality)
+
+            read_set2.append(paired_header2)
+            read_set2.append(five_b_ds_read)
+            read_set2.append("+")
+            read_set2.append(five_quality)
+
     if args.tag_file is 1:
         args.tag_file.write("\t".join([fullbarcode, ",".join(read_names_top), ",".join(read_names_bottom)]) + "\n")
+    # read_set is the seq1 sequences of the pairs and read_set2 is the seq2 sequences of the pairs
+    # one ab 'read' is the first entry from read_set1 and the first entry from read_set2
+    # one ba 'read' is the second entry from read_set1 and the second entry from read_set2
     return read_set, read_set2
 
 
@@ -535,7 +551,6 @@ def fastq_quality(args, seq_len):
         qualities.append(randint(QUAL_SET[args.quality_type][
                          0], QUAL_SET[args.quality_type][1]))
     # avg_qual = sum(qualities) / len(qualities)
-    # print("avg_qual ",avg_qual)
     qual_string = map(lambda x: chr(x + 33), qualities)
     return(''.join(qual_string))
 
