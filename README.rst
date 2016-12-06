@@ -191,5 +191,15 @@ value.  Each line should have a unique Barcode and a number of reads generated d
 max_num_reads value. The Num Reads value will be duplicated because duplex sequencing requires
 ab and ba reads for each sequence to be valid. So the first barcode has 8 reads in seq1 and 8 in seq2
 
+Run this example with:
+python makeFakeFASTQ.py --fasta simple.fa --max_num_families 4 --max_num_reads 8
+
+It will produce four files:
+DSWF_map.txt.gz         A map file (see above) containing information on counts generated
+DSWF_seq1.fastq.gz      A FASTQ file of sequences
+DSWF_seq2.fastq.gz      A FASTQ file of sequence pairs
+DSWF_tags.txt.gz        A file mapping between the input FASTQ entry, the barcode, and the read names
+
+
 .. |Build Status| image:: https://travis-ci.org/systemsbiology/dswfFakeFASTQ.svg?branch=master
    :target: https://travis-ci.org/systemsbiology/dswfFakeFASTQ

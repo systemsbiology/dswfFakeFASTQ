@@ -268,8 +268,8 @@ def main(argv):
     if args.tag_file == 1:
         args.tag_file = gzip.open(args.prefix + '_tags.txt.gz', 'wb')
         args.tag_file.write('VERSION\t'+str(VERSION)+"\n")
-        args.tag_file.write("\t".join(["FASTA Header", "Barcode","Reads"])
-                                      + "\n")
+        args.tag_file.write("\t".join(["FASTA Header", "Barcode","Reads Seq1",
+                                       "Reads Seq2"]) + "\n")
 
     while True:
         header = fasta.readline().rstrip('\r\n')
@@ -459,8 +459,8 @@ def make_family(header, seq, args, num_families):
             barcode_b, fullbarcode))
     read_set = []
     read_set2 = []
-    read_names_top = []
-    read_names_bottom = []
+    read_names_seq1 = []
+    read_names_seq2 = []
     bSeq = Seq(seq)
     # To simulate different sequences from one fasta sequence
     # ab:1 and ba:2 use 5' sequence
@@ -485,14 +485,18 @@ def make_family(header, seq, args, num_families):
                                                         header, fullbarcode)
         (fastq_header2, paired_header2) = fastq_entry_header(args,
                                                         header, fullbarcode)
+        read_names_seq1.append(fastq_header)
+        read_names_seq1.append(fastq_header2)
+        read_names_seq2.append(paired_header)
+        read_names_seq2.append(paired_header2)
         # add a reversed read if we have flipped to add
         if (num_flipped > count_flipped):
             count_flipped =+ 1
 
-            read_names_bottom.append(fastq_header)   # ab1
-            read_names_bottom.append(fastq_header2)  # ab2
-            read_names_bottom.append(paired_header)  # ba1
-            read_names_bottom.append(paired_header2) # ba2
+            read_names_seq2.append(fastq_header)   # ab1
+            read_names_seq2.append(fastq_header2)  # ab2
+            read_names_seq2.append(paired_header)  # ba1
+            read_names_seq2.append(paired_header2) # ba2
 
             # add ab:1 and ba:1 to read_set
             read_set.append(fastq_header)
@@ -538,8 +542,8 @@ def make_family(header, seq, args, num_families):
             read_set2.append("+")
             read_set2.append(five_quality)
 
-    if args.tag_file is 1:
-        args.tag_file.write("\t".join([fullbarcode, ",".join(read_names_top), ",".join(read_names_bottom)]) + "\n")
+    if args.tag_file:
+        args.tag_file.write("\t".join([header, fullbarcode, ",".join(read_names_seq1), ",".join(read_names_seq2)]) + "\n")
     # read_set is the seq1 sequences of the pairs and read_set2 is the seq2 sequences of the pairs
     # one ab 'read' is the first entry from read_set1 and the first entry from read_set2
     # one ba 'read' is the second entry from read_set1 and the second entry from read_set2
