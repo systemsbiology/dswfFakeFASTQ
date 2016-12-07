@@ -11,7 +11,6 @@ Creates two paired-end FASTQ files or one FASTQ file for testing the Duplex-Sequ
 Only requires a FASTA file of the read sequence to use to generate the FASTQ file, but has
 many options that allow customization of the FASTQ file(s) created.
 
-usage::
 usage: makeFakeFASTQ.py [-h] [--barcode_length BARCODE_LENGTH]
                         [--barcode_a BARCODE_A] [--barcode_b BARCODE_B]
                         [--spacer_length SPACER_LENGTH]
@@ -47,7 +46,7 @@ usage: makeFakeFASTQ.py [-h] [--barcode_length BARCODE_LENGTH]
                         [--buffer_seq BUFFER_SEQ] [--quality QUALITY]
 
 optional arguments:
-  -h, --help            show this help message and exit
+  \-h, --help            show this help message and exit
   --barcode_length BARCODE_LENGTH, -bcl BARCODE_LENGTH
                         Length of Barcode at beginning and end of sequence.
                         Default: 10
