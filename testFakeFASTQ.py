@@ -83,10 +83,10 @@ class FakeFASTQTest(unittest.TestCase):
 
     def test_reads(self):
         self.assertEqual(self.read_ab1[10:], self.read_ba2[10:], "read ab1 and \
-        read ba2 should match after first 10 bp\nab1 {}\nba2 {}".format(
+        read ba2 should match after first 10 bp\nab1 {0}\nba2 {1}".format(
             self.read_ab1[10:], self.read_ba2[10:]))
         self.assertEqual(self.read_ab2[10:], self.read_ba1[10:], "read ab2 and \
-        read ba1 should match after first 10 bp\nab2 {}\nba1 {}".format(
+        read ba1 should match after first 10 bp\nab2 {0}\nba1 {1}".format(
             self.read_ab2[10:], self.read_ba1[10:]))
 
     # test reverse complement
@@ -95,7 +95,7 @@ class FakeFASTQTest(unittest.TestCase):
         self.assertEqual(
             self.rev_seq1, calc_rev_seq,
             "self.rev_seq1 and Bio.Seq reverse_complement are the same\
-            \nself.rev_seq1 {}\nBio.seq revc {}\n"
+            \nself.rev_seq1 {0}\nBio.seq revc {1}\n"
             .format(self.rev_seq1, calc_rev_seq))
 
     # TEST def random_sequence
