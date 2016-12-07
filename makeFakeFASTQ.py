@@ -6,7 +6,7 @@ import argparse
 import gzip
 import warnings
 from random import randint, sample
-from Bio.Seq import Seq # used for reverse_complement()
+from Bio.Seq import Seq  # used for reverse_complement()
 
 VERSION = 0.06
 
@@ -95,7 +95,7 @@ OPT_DEFAULTS = {
     'barcode_length': 10, 'spacer_length': 1,
     'min_num_families': 2, 'max_num_families': 15,
     'min_num_reads': 3, 'max_num_reads': 20,
-    'min_num_flipped': 2, 'max_num_flipped': 10, # defaults to half of reads
+    'min_num_flipped': 2, 'max_num_flipped': 10,  # defaults to half of reads
     'read_length': 156, 'buffer_both_sides': 0,
     'buffer_end': 1, 'truncate_by_read': 1,
     'wobble_read': None, 'rand_window': None,
@@ -261,14 +261,14 @@ def main(argv):
     seq2_file = gzip.open(args.prefix + '_seq2.fastq.gz', 'wb')
     if args.map_file is 1:
         args.map_file = gzip.open(args.prefix + '_map.txt.gz', 'wb')
-        args.map_file.write("VERSION\t"+str(VERSION)+"\n")
+        args.map_file.write("VERSION\t" + str(VERSION) + "\n")
         args.map_file.write("\t".join(["FASTA Header", "Num Familes",
-                            "Num Reads", "Num Flipped", "Barcode A",
-                            "Barcode B", "Full Barcode"]) + "\n")
+                                       "Num Reads", "Num Flipped", "Barcode A",
+                                       "Barcode B", "Full Barcode"]) + "\n")
     if args.tag_file == 1:
         args.tag_file = gzip.open(args.prefix + '_tags.txt.gz', 'wb')
-        args.tag_file.write('VERSION\t'+str(VERSION)+"\n")
-        args.tag_file.write("\t".join(["FASTA Header", "Barcode","Reads Seq1",
+        args.tag_file.write('VERSION\t' + str(VERSION) + "\n")
+        args.tag_file.write("\t".join(["FASTA Header", "Barcode", "Reads Seq1",
                                        "Reads Seq2"]) + "\n")
 
     while True:
@@ -278,8 +278,8 @@ def main(argv):
             break
         seq = line.rstrip('\r\n').upper()
         (clan_seq1, clan_seq2) = make_clan(header, seq, args)
-        seq1_file.write("\n".join(map("\n".join,clan_seq1)) + "\n")
-        seq2_file.write("\n".join(map("\n".join,clan_seq2)) + "\n")
+        seq1_file.write("\n".join(map("\n".join, clan_seq1)) + "\n")
+        seq2_file.write("\n".join(map("\n".join, clan_seq2)) + "\n")
     if args.map_file:
         args.map_file.close()
     seq1_file.close()
@@ -296,7 +296,7 @@ def make_clan(header, seq, args):
     if args.min_num_families > args.max_num_families:
         raise ValueError("Incorrect value of min_num_families or max_num_families")
     num_families = args.num_families
-    if args.num_families == None:
+    if args.num_families is None:
         num_families = randint(args.min_num_families, args.max_num_families)
     clan_seq = []
     clan_seq2 = []
@@ -358,9 +358,9 @@ def truncate_sequence(args, seq, count=None, read_type=None):
         elif read_type == '3':
             ts = 1
             te = 0
-            if args.wobble_read:
             # if we're making wobbly reads 3' read we want to move the window randomly a
             # little bit to the 5' to make bwa happy with the read distribution
+            if args.wobble_read:
                 rand_num = randint(0, 15)
                 if args.rand_window is not None:
                     rand_num = args.rand_window
@@ -388,6 +388,8 @@ def truncate_sequence(args, seq, count=None, read_type=None):
 # based on read length required and spacer length
 # read_type is used to truncate the sequence from the left or right side
 # if the read is longer than the read length required
+
+
 def make_ds_read(args, seq, barcode, read_type=None):
     ds_spacer = 'T' * args.spacer_length
     ds_length = len(ds_spacer) + len(barcode)
@@ -414,6 +416,7 @@ def make_ds_read(args, seq, barcode, read_type=None):
 # make_family is designed to make a valid DSWF family, so if you ask for num_reads = 1
 # you'll get 4 sequences (ab1, ab2, ba1, ba2).
 
+
 def make_family(header, seq, args, num_families):
     # set up number of reads
     if args.min_num_reads > args.max_num_reads:
@@ -427,8 +430,8 @@ def make_family(header, seq, args, num_families):
         raise ValueError("Incorrect value of min_num_flipped or max_num_flipped")
     num_flipped = randint(args.min_num_flipped, args.max_num_flipped)
     # must also be half or less of the num_reads
-    if num_flipped > num_reads/2:
-        num_flipped = int(num_reads/2)
+    if num_flipped > num_reads / 2:
+        num_flipped = int(num_reads / 2)
     if args.num_flipped:
         num_flipped = args.num_flipped
 
@@ -477,26 +480,25 @@ def make_family(header, seq, args, num_families):
     three_quality = args.quality if args.quality else fastq_quality(
         args, len(three_b_ds_read))
 
-
     # we have num_reads to produce the following:
     count_flipped = 0
     for i in range(1, num_reads + 1):
-        (fastq_header, paired_header) = fastq_entry_header(args,
-                                                        header, fullbarcode)
-        (fastq_header2, paired_header2) = fastq_entry_header(args,
-                                                        header, fullbarcode)
+        (fastq_header, paired_header) = fastq_entry_header(args, header,
+                                                           fullbarcode)
+        (fastq_header2, paired_header2) = fastq_entry_header(args, header,
+                                                             fullbarcode)
         read_names_seq1.append(fastq_header)
         read_names_seq1.append(fastq_header2)
         read_names_seq2.append(paired_header)
         read_names_seq2.append(paired_header2)
         # add a reversed read if we have flipped to add
         if (num_flipped > count_flipped):
-            count_flipped =+ 1
+            count_flipped += 1
 
-            read_names_seq2.append(fastq_header)   # ab1
-            read_names_seq2.append(fastq_header2)  # ab2
-            read_names_seq2.append(paired_header)  # ba1
-            read_names_seq2.append(paired_header2) # ba2
+            read_names_seq2.append(fastq_header)    # ab1
+            read_names_seq2.append(fastq_header2)   # ab2
+            read_names_seq2.append(paired_header)   # ba1
+            read_names_seq2.append(paired_header2)  # ba2
 
             # add ab:1 and ba:1 to read_set
             read_set.append(fastq_header)

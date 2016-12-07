@@ -2,7 +2,7 @@ import unittest
 import makeFakeFASTQ
 import re
 from argparse import Namespace
-from Bio.Seq import Seq # used for reverse_complement()
+from Bio.Seq import Seq  # used for reverse_complement()
 
 
 # DSWF expects paired FASTQ files
@@ -47,10 +47,10 @@ class FakeFASTQTest(unittest.TestCase):
         self.barcode_a = "AGAAAACGTC"
         self.barcode_b = "AAGATTTGTG"
         self.fullbarcode = self.barcode_a + self.barcode_b
-        self.seq1     = "AACTAGGGCTTGTCCTAGCAGGGAAAGCTTTGACTTAAAAGCCTCTGCT"
-        self.seq2     = "TGGGGGCATCTCTTATACTCATGAAATCAACAGAGGCTTGC"
+        self.seq1 = "AACTAGGGCTTGTCCTAGCAGGGAAAGCTTTGACTTAAAAGCCTCTGCT"
+        self.seq2 = "TGGGGGCATCTCTTATACTCATGAAATCAACAGAGGCTTGC"
 
-        self.rev_seq1     = "AGCAGAGGCTTTTAAGTCAAAGCTTTCCCTGCTAGGACAAGCCCTAGTT"
+        self.rev_seq1 = "AGCAGAGGCTTTTAAGTCAAAGCTTTCCCTGCTAGGACAAGCCCTAGTT"
 
         self.read_ba1 = self.barcode_b + self.seq1
         self.read_ab2 = self.barcode_a + self.seq1
@@ -83,16 +83,17 @@ class FakeFASTQTest(unittest.TestCase):
 
     def test_reads(self):
         self.assertEqual(self.read_ab1[10:], self.read_ba2[10:], "read ab1 and \
-        read ba2 should match after first 10 bp\nab1 {}\nba2 {}"
-        .format(self.read_ab1[10:], self.read_ba2[10:]))
+        read ba2 should match after first 10 bp\nab1 {}\nba2 {}".format(
+            self.read_ab1[10:], self.read_ba2[10:]))
         self.assertEqual(self.read_ab2[10:], self.read_ba1[10:], "read ab2 and \
-        read ba1 should match after first 10 bp\nab2 {}\nba1 {}"
-        .format(self.read_ab2[10:], self.read_ba1[10:]))
+        read ba1 should match after first 10 bp\nab2 {}\nba1 {}".format(
+            self.read_ab2[10:], self.read_ba1[10:]))
 
     # test reverse complement
     def test_rev_seq(self):
         calc_rev_seq = Seq(self.seq1).reverse_complement()
-        self.assertEqual(self.rev_seq1, calc_rev_seq,
+        self.assertEqual(
+            self.rev_seq1, calc_rev_seq,
             "self.rev_seq1 and Bio.Seq reverse_complement are the same\
             \nself.rev_seq1 {}\nBio.seq revc {}\n"
             .format(self.rev_seq1, calc_rev_seq))
@@ -216,7 +217,6 @@ class FakeFASTQTest(unittest.TestCase):
         testSeq = makeFakeFASTQ.buffer_sequence(self.args, self.seq1)
         self.assertEqual(len(testSeq), self.args.read_length, "buffer_sequence does nothing when it should args: {0} test:{1}".format(self.args.read_length, len(testSeq)))
 
-
     def test_buffer_sequence_end(self):
         # defaults to buffer_end, should add 5 G's to end of self.seq1
         self.args.read_length = len(self.seq1) + 5
@@ -237,7 +237,7 @@ class FakeFASTQTest(unittest.TestCase):
 
     def test_buffer_sequence_both_sides_odd(self):
         # with buffer_both_sides set, it should add to both sides
-        self.args.read_length = 54 # add 5 bp, 3 to left, 2 to right
+        self.args.read_length = 54  # add 5 bp, 3 to left, 2 to right
         self.args.buffer_end = 0
         self.args.buffer_both_sides = 1
         self.args.buffer_seq = self.buffer_seq
@@ -574,9 +574,8 @@ class FakeFASTQTest(unittest.TestCase):
         (testClan1, testClan2) = makeFakeFASTQ.make_clan(self.fasta_header, self.seq1, self.args)
         canonical1 = [['@N5V:1:H5N:1:11103:5:8 1:N:0:test1:AGAAAACGTCAAGATTTGTG', 'AAGATTTGTGTAACTAGGGCTTGTCCTAGCAGGGAA', '+', 'HFDEGEFHFIFDGIEHIFGEJJJHGEFHFIFDGIE', '@N5V:1:H5N:1:11103:5:8 1:N:0:test1:AGAAAACGTCAAGATTTGTG', 'AGAAAACGTCTAACTAGGGCTTGTCCTAGCAGGGAA', '+', 'HFDEGEFHFIFDGIEHIFGEJJJHGEFHFIFDGIE']]
         canonical2 = [['@N5V:1:H5N:1:11103:5:8 2:N:0:test1:AGAAAACGTCAAGATTTGTG', 'AGAAAACGTCTAACTAGGGCTTGTCCTAGCAGGGAA', '+', 'HFDEGEFHFIFDGIEHIFGEJJJHGEFHFIFDGIE', '@N5V:1:H5N:1:11103:5:8 2:N:0:test1:AGAAAACGTCAAGATTTGTG', 'AAGATTTGTGTAACTAGGGCTTGTCCTAGCAGGGAA', '+', 'HFDEGEFHFIFDGIEHIFGEJJJHGEFHFIFDGIE']]
-        self.assertEqual(' '.join(map(" ".join,canonical1)), ' '.join(map(' '.join,testClan1)), "make_clan returns proper values for clan 1.\ncanonical: {0}\n     test: {1} ".format(canonical1, testClan1))
+        self.assertEqual(' '.join(map(" ".join, canonical1)), ' '.join(map(' '.join, testClan1)), "make_clan returns proper values for clan 1.\ncanonical: {0}\n     test: {1} ".format(canonical1, testClan1))
         self.assertEqual(canonical2, testClan2, "make_clan returns proper values for clan 2.\ncanonical: {0}\n     test: {1} ".format(canonical2, testClan2))
-
 
     def test_min_num_families_fails_without_max_num_families(self):
         self.args.quality = self.full_qual
@@ -604,7 +603,7 @@ class FakeFASTQTest(unittest.TestCase):
         (testClan1, testClan2) = makeFakeFASTQ.make_clan(self.fasta_header, self.seq1, self.args)
         canonical1 = [['@N5V:1:H5N:1:11103:5:8 1:N:0:test1:AGAAAACGTCAAGATTTGTG', 'AAGATTTGTGTAACTAGGGCTTGTCCTAGCAGGGAA', '+', 'HFDEGEFHFIFDGIEHIFGEJJJHGEFHFIFDGIE', '@N5V:1:H5N:1:11103:5:8 1:N:0:test1:AGAAAACGTCAAGATTTGTG', 'AGAAAACGTCTAACTAGGGCTTGTCCTAGCAGGGAA', '+', 'HFDEGEFHFIFDGIEHIFGEJJJHGEFHFIFDGIE'], ['@N5V:1:H5N:1:11103:5:8 1:N:0:test1:AGAAAACGTCAAGATTTGTG', 'AAGATTTGTGTAACTAGGGCTTGTCCTAGCAGGGAA', '+', 'HFDEGEFHFIFDGIEHIFGEJJJHGEFHFIFDGIE', '@N5V:1:H5N:1:11103:5:8 1:N:0:test1:AGAAAACGTCAAGATTTGTG', 'AGAAAACGTCTAACTAGGGCTTGTCCTAGCAGGGAA', '+', 'HFDEGEFHFIFDGIEHIFGEJJJHGEFHFIFDGIE'], ['@N5V:1:H5N:1:11103:5:8 1:N:0:test1:AGAAAACGTCAAGATTTGTG', 'AAGATTTGTGTAACTAGGGCTTGTCCTAGCAGGGAA', '+', 'HFDEGEFHFIFDGIEHIFGEJJJHGEFHFIFDGIE', '@N5V:1:H5N:1:11103:5:8 1:N:0:test1:AGAAAACGTCAAGATTTGTG', 'AGAAAACGTCTAACTAGGGCTTGTCCTAGCAGGGAA', '+', 'HFDEGEFHFIFDGIEHIFGEJJJHGEFHFIFDGIE']]
         canonical2 = [['@N5V:1:H5N:1:11103:5:8 2:N:0:test1:AGAAAACGTCAAGATTTGTG', 'AGAAAACGTCTAACTAGGGCTTGTCCTAGCAGGGAA', '+', 'HFDEGEFHFIFDGIEHIFGEJJJHGEFHFIFDGIE', '@N5V:1:H5N:1:11103:5:8 2:N:0:test1:AGAAAACGTCAAGATTTGTG', 'AAGATTTGTGTAACTAGGGCTTGTCCTAGCAGGGAA', '+', 'HFDEGEFHFIFDGIEHIFGEJJJHGEFHFIFDGIE'], ['@N5V:1:H5N:1:11103:5:8 2:N:0:test1:AGAAAACGTCAAGATTTGTG', 'AGAAAACGTCTAACTAGGGCTTGTCCTAGCAGGGAA', '+', 'HFDEGEFHFIFDGIEHIFGEJJJHGEFHFIFDGIE', '@N5V:1:H5N:1:11103:5:8 2:N:0:test1:AGAAAACGTCAAGATTTGTG', 'AAGATTTGTGTAACTAGGGCTTGTCCTAGCAGGGAA', '+', 'HFDEGEFHFIFDGIEHIFGEJJJHGEFHFIFDGIE'], ['@N5V:1:H5N:1:11103:5:8 2:N:0:test1:AGAAAACGTCAAGATTTGTG', 'AGAAAACGTCTAACTAGGGCTTGTCCTAGCAGGGAA', '+', 'HFDEGEFHFIFDGIEHIFGEJJJHGEFHFIFDGIE', '@N5V:1:H5N:1:11103:5:8 2:N:0:test1:AGAAAACGTCAAGATTTGTG', 'AAGATTTGTGTAACTAGGGCTTGTCCTAGCAGGGAA', '+', 'HFDEGEFHFIFDGIEHIFGEJJJHGEFHFIFDGIE']]
-        self.assertEqual(' '.join(map(' '.join,canonical1)), ' '.join(map(' '.join,testClan1)), "make_clan returns proper values for clan 1.\ncanonical: {0}\n     test: {1} ".format(canonical1, testClan1))
+        self.assertEqual(' '.join(map(' '.join, canonical1)), ' '.join(map(' '.join, testClan1)), "make_clan returns proper values for clan 1.\ncanonical: {0}\n     test: {1} ".format(canonical1, testClan1))
         self.assertEqual(canonical2, testClan2, "make_clan returns proper values for clan 2.\ncanonical: {0}\n     test: {1} ".format(canonical2, testClan2))
 
     def test_make_clan_num_families(self):
@@ -618,10 +617,8 @@ class FakeFASTQTest(unittest.TestCase):
         self.assertEqual(len(testClan2), self.args.num_families, "make_clan returns proper number of lines")
         canonical1 = [['@N5V:1:H5N:1:11103:5:8 1:N:0:test1:AGAAAACGTCAAGATTTGTG', 'AAGATTTGTGTAACTAGGGCTTGTCCTAGCAGGGAA', '+', 'HFDEGEFHFIFDGIEHIFGEJJJHGEFHFIFDGIE', '@N5V:1:H5N:1:11103:5:8 1:N:0:test1:AGAAAACGTCAAGATTTGTG', 'AGAAAACGTCTAACTAGGGCTTGTCCTAGCAGGGAA', '+', 'HFDEGEFHFIFDGIEHIFGEJJJHGEFHFIFDGIE'], ['@N5V:1:H5N:1:11103:5:8 1:N:0:test1:AGAAAACGTCAAGATTTGTG', 'AAGATTTGTGTAACTAGGGCTTGTCCTAGCAGGGAA', '+', 'HFDEGEFHFIFDGIEHIFGEJJJHGEFHFIFDGIE', '@N5V:1:H5N:1:11103:5:8 1:N:0:test1:AGAAAACGTCAAGATTTGTG', 'AGAAAACGTCTAACTAGGGCTTGTCCTAGCAGGGAA', '+', 'HFDEGEFHFIFDGIEHIFGEJJJHGEFHFIFDGIE'], ['@N5V:1:H5N:1:11103:5:8 1:N:0:test1:AGAAAACGTCAAGATTTGTG', 'AAGATTTGTGTAACTAGGGCTTGTCCTAGCAGGGAA', '+', 'HFDEGEFHFIFDGIEHIFGEJJJHGEFHFIFDGIE', '@N5V:1:H5N:1:11103:5:8 1:N:0:test1:AGAAAACGTCAAGATTTGTG', 'AGAAAACGTCTAACTAGGGCTTGTCCTAGCAGGGAA', '+', 'HFDEGEFHFIFDGIEHIFGEJJJHGEFHFIFDGIE']]
         canonical2 = [['@N5V:1:H5N:1:11103:5:8 2:N:0:test1:AGAAAACGTCAAGATTTGTG', 'AGAAAACGTCTAACTAGGGCTTGTCCTAGCAGGGAA', '+', 'HFDEGEFHFIFDGIEHIFGEJJJHGEFHFIFDGIE', '@N5V:1:H5N:1:11103:5:8 2:N:0:test1:AGAAAACGTCAAGATTTGTG', 'AAGATTTGTGTAACTAGGGCTTGTCCTAGCAGGGAA', '+', 'HFDEGEFHFIFDGIEHIFGEJJJHGEFHFIFDGIE'], ['@N5V:1:H5N:1:11103:5:8 2:N:0:test1:AGAAAACGTCAAGATTTGTG', 'AGAAAACGTCTAACTAGGGCTTGTCCTAGCAGGGAA', '+', 'HFDEGEFHFIFDGIEHIFGEJJJHGEFHFIFDGIE', '@N5V:1:H5N:1:11103:5:8 2:N:0:test1:AGAAAACGTCAAGATTTGTG', 'AAGATTTGTGTAACTAGGGCTTGTCCTAGCAGGGAA', '+', 'HFDEGEFHFIFDGIEHIFGEJJJHGEFHFIFDGIE'], ['@N5V:1:H5N:1:11103:5:8 2:N:0:test1:AGAAAACGTCAAGATTTGTG', 'AGAAAACGTCTAACTAGGGCTTGTCCTAGCAGGGAA', '+', 'HFDEGEFHFIFDGIEHIFGEJJJHGEFHFIFDGIE', '@N5V:1:H5N:1:11103:5:8 2:N:0:test1:AGAAAACGTCAAGATTTGTG', 'AAGATTTGTGTAACTAGGGCTTGTCCTAGCAGGGAA', '+', 'HFDEGEFHFIFDGIEHIFGEJJJHGEFHFIFDGIE']]
-        self.assertEqual(' '.join(map(" ".join,canonical1)), ' '.join(map(' '.join,testClan1)), "make_clan returns proper values for clan 1.\ncanonical: {0}\n     test: {1} ".format(canonical1, testClan1))
+        self.assertEqual(' '.join(map(" ".join, canonical1)), ' '.join(map(' '.join, testClan1)), "make_clan returns proper values for clan 1.\ncanonical: {0}\n     test: {1} ".format(canonical1, testClan1))
         self.assertEqual(canonical2, testClan2, "make_clan returns proper values for clan 2.\ncanonical: {0}\n     test: {1} ".format(canonical2, testClan2))
-
-
 
     ###########################################################################
     # TEST reads options
@@ -651,9 +648,9 @@ class FakeFASTQTest(unittest.TestCase):
         (testFam1, testFam2) = makeFakeFASTQ.make_family(self.fasta_header, self.seq1, self.args, self.args.min_num_families)
         canonical1 = ['@N5V:1:H5N:1:11103:5:8 1:N:0:test1:AGAAAACGTCAAGATTTGTG', 'AGAAAACGTCTAACTAGGGCTTGTCCTAGCAGGGAA', '+', 'HFDEGEFHFIFDGIEHIFGEJJJHGEFHFIFDGIE', '@N5V:1:H5N:1:11103:5:8 1:N:0:test1:AGAAAACGTCAAGATTTGTG', 'AAGATTTGTGTAACTAGGGCTTGTCCTAGCAGGGAA', '+', 'HFDEGEFHFIFDGIEHIFGEJJJHGEFHFIFDGIE', '@N5V:1:H5N:1:11103:5:8 1:N:0:test1:AGAAAACGTCAAGATTTGTG', 'AAGATTTGTGTAACTAGGGCTTGTCCTAGCAGGGAA', '+', 'HFDEGEFHFIFDGIEHIFGEJJJHGEFHFIFDGIE', '@N5V:1:H5N:1:11103:5:8 1:N:0:test1:AGAAAACGTCAAGATTTGTG', 'AGAAAACGTCTAACTAGGGCTTGTCCTAGCAGGGAA', '+', 'HFDEGEFHFIFDGIEHIFGEJJJHGEFHFIFDGIE', '@N5V:1:H5N:1:11103:5:8 1:N:0:test1:AGAAAACGTCAAGATTTGTG', 'AAGATTTGTGTAACTAGGGCTTGTCCTAGCAGGGAA', '+', 'HFDEGEFHFIFDGIEHIFGEJJJHGEFHFIFDGIE', '@N5V:1:H5N:1:11103:5:8 1:N:0:test1:AGAAAACGTCAAGATTTGTG', 'AGAAAACGTCTAACTAGGGCTTGTCCTAGCAGGGAA', '+', 'HFDEGEFHFIFDGIEHIFGEJJJHGEFHFIFDGIE']
         canonical2 = ['@N5V:1:H5N:1:11103:5:8 2:N:0:test1:AGAAAACGTCAAGATTTGTG', 'AAGATTTGTGTAACTAGGGCTTGTCCTAGCAGGGAA', '+', 'HFDEGEFHFIFDGIEHIFGEJJJHGEFHFIFDGIE', '@N5V:1:H5N:1:11103:5:8 2:N:0:test1:AGAAAACGTCAAGATTTGTG', 'AGAAAACGTCTAACTAGGGCTTGTCCTAGCAGGGAA', '+', 'HFDEGEFHFIFDGIEHIFGEJJJHGEFHFIFDGIE', '@N5V:1:H5N:1:11103:5:8 2:N:0:test1:AGAAAACGTCAAGATTTGTG', 'AGAAAACGTCTAACTAGGGCTTGTCCTAGCAGGGAA', '+', 'HFDEGEFHFIFDGIEHIFGEJJJHGEFHFIFDGIE', '@N5V:1:H5N:1:11103:5:8 2:N:0:test1:AGAAAACGTCAAGATTTGTG', 'AAGATTTGTGTAACTAGGGCTTGTCCTAGCAGGGAA', '+', 'HFDEGEFHFIFDGIEHIFGEJJJHGEFHFIFDGIE', '@N5V:1:H5N:1:11103:5:8 2:N:0:test1:AGAAAACGTCAAGATTTGTG', 'AGAAAACGTCTAACTAGGGCTTGTCCTAGCAGGGAA', '+', 'HFDEGEFHFIFDGIEHIFGEJJJHGEFHFIFDGIE', '@N5V:1:H5N:1:11103:5:8 2:N:0:test1:AGAAAACGTCAAGATTTGTG', 'AAGATTTGTGTAACTAGGGCTTGTCCTAGCAGGGAA', '+', 'HFDEGEFHFIFDGIEHIFGEJJJHGEFHFIFDGIE']
-        self.assertEqual(len(testFam1), 8*self.args.min_num_reads, "make_family returns proper number of lines testFam1 {0} canonical {1}".format(len(testFam1), 4*self.args.min_num_reads))
+        self.assertEqual(len(testFam1), 8 * self.args.min_num_reads, "make_family returns proper number of lines testFam1 {0} canonical {1}".format(len(testFam1), 4 * self.args.min_num_reads))
         self.assertEqual(' '.join(canonical1), ' '.join(testFam1), "make_family returns proper values for forward.\ncanonical: {0}\n     test: {1} ".format(canonical1, testFam1))
-        self.assertEqual(len(testFam2), 8*self.args.min_num_reads, "make_family returns proper number of lines")
+        self.assertEqual(len(testFam2), 8 * self.args.min_num_reads, "make_family returns proper number of lines")
         self.assertEqual(canonical2, testFam2, "make_family returns proper values for reverse.\ncanonical: {0}\n     test: {1} ".format(canonical2, testFam2))
 
     def test_min_num_reads_overridden_by_num_reads(self):
@@ -668,18 +665,13 @@ class FakeFASTQTest(unittest.TestCase):
         canonical1 = ['@N5V:1:H5N:1:11103:5:8 1:N:0:test1:AGAAAACGTCAAGATTTGTG', 'AAGATTTGTGTAACTAGGGCTTGTCCTAGCAGGGAAAGCTTTGACTTAAAAGCCTCTGCT', '+', 'HFDEGEFHFIFDGIEHIFGEJJJHGEFHFIFDGIE', '@N5V:1:H5N:1:11103:5:8 1:N:0:test1:AGAAAACGTCAAGATTTGTG', 'AGAAAACGTCTAACTAGGGCTTGTCCTAGCAGGGAAAGCTTTGACTTAAAAGCCTCTGCT', '+', 'HFDEGEFHFIFDGIEHIFGEJJJHGEFHFIFDGIE']
         canonical2 = ['@N5V:1:H5N:1:11103:5:8 2:N:0:test1:AGAAAACGTCAAGATTTGTG', 'AGAAAACGTCTAACTAGGGCTTGTCCTAGCAGGGAAAGCTTTGACTTAAAAGCCTCTGCT', '+', 'HFDEGEFHFIFDGIEHIFGEJJJHGEFHFIFDGIE', '@N5V:1:H5N:1:11103:5:8 2:N:0:test1:AGAAAACGTCAAGATTTGTG', 'AAGATTTGTGTAACTAGGGCTTGTCCTAGCAGGGAAAGCTTTGACTTAAAAGCCTCTGCT', '+', 'HFDEGEFHFIFDGIEHIFGEJJJHGEFHFIFDGIE']
         # right now it returns 2 fastq entries per num_read, so 8 total lines per num_read
-        self.assertEqual(len(testFam1), 8*self.args.num_reads, "make_family returns proper number of lines testFam {0} canonical {1}".format(len(testFam1), 8*self.args.num_reads))
+        self.assertEqual(len(testFam1), 8 * self.args.num_reads, "make_family returns proper number of lines testFam {0} canonical {1}".format(len(testFam1), 8 * self.args.num_reads))
         self.assertEqual(' '.join(canonical1), ' '.join(testFam1), "make_family returns proper values for forward.\ncanonical: {0}\n     test: {1} ".format(canonical1, testFam1))
-        self.assertEqual(len(testFam2), 8*self.args.num_reads, "make_family returns proper number of lines")
+        self.assertEqual(len(testFam2), 8 * self.args.num_reads, "make_family returns proper number of lines")
         self.assertEqual(canonical2, testFam2, "make_family returns proper values for reverse.\ncanonical: {0}\n     test: {1} ".format(canonical2, testFam2))
-
-
 
     ###########################################################################
     # TEST FREQUENCY FILE OPTIONS
-
-
-
 
     def test_frequency_file(self):
         self.args.quality = self.full_qual
@@ -693,8 +685,6 @@ class FakeFASTQTest(unittest.TestCase):
         canonical2 = ['@N5V:1:H5N:1:11103:5:8 2:N:0:test1:AGAAAACGTCAAGATTTGTG', 'AGAAAACGTCTAACTAGGGCTTGTCCTAGCAGGGAA', '+', 'HFDEGEFHFIFDGIEHIFGEJJJHGEFHFIFDGIE', '@N5V:1:H5N:1:11103:5:8 2:N:0:test1:AGAAAACGTCAAGATTTGTG', 'AAGATTTGTGTAACTAGGGCTTGTCCTAGCAGGGAA', '+', 'HFDEGEFHFIFDGIEHIFGEJJJHGEFHFIFDGIE']
         self.assertEqual(' '.join(canonical1), ' '.join(testFam1), "make_family returns proper values for family 1.\ncanonical: {0}\n     test: {1} ".format(canonical1, testFam1))
         self.assertEqual(canonical2, testFam2, "make_family returns proper values for family 2.\ncanonical: {0}\n     test: {1} ".format(canonical2, testFam2))
-
-
 
     ###########################################################################
 
