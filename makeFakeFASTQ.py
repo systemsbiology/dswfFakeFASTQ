@@ -257,7 +257,6 @@ def main(argv):
                                        "Reads Seq2"]) + "\n")
 
     for rec in records:
-        print("making fastq records for {}".format(rec.seq))
         (clan_seq1, clan_seq2) = make_clan(rec.name, rec.seq, args)
         seq1_file.write("\n".join(map("\n".join, clan_seq1)) + "\n")
         seq2_file.write("\n".join(map("\n".join, clan_seq2)) + "\n")
