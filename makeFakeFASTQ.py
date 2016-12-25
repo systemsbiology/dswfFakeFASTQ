@@ -7,17 +7,14 @@ import gzip
 import warnings
 from random import randint, sample
 from Bio.Seq import Seq  # used for reverse_complement()
+from Bio import SeqIO
 
-VERSION = 0.06
+VERSION = 0.07
 
 # To generate duplex sequencing simulated data, we start with N number of
 # molecules of double stranded DNA.  These are represented by the number of
 # entries in the FASTA file that feeds this program (N). We then generate
 # 1-X families (-nf), composed of 1-Y reads (-nr).
-
-# The barcode on each side of a molecule can be read in either direction
-# by the sequencer, so some amount of the families must have reversed
-# barcodes (Z, num_flipped).
 
 # This program assumes that the FASTA file contains FORWARD strand
 # sequence and thus generates the reverse complement.
@@ -32,14 +29,10 @@ VERSION = 0.06
 # We combine ab:2 and ba:1 to get the REVERSE sequence
 # We then get one duplex consensus for FORWARD and one
 # for REVERSE.
-# Note: This can be flipped where ab:1/ba:2 contain REVERSE
-# and then ab:2/ba:2 contain FORWARD in real data
-
-#  If num_flipped is set to 0 then only produces ab:1/ab:2
 
 # Example:  Starting with 360 entries in the FASTA file, with X = 15 and
-#           Y = 10, and Z = 5. The maximum number of entries in the FASTQ
-#           file is 360*15*10 = 54,000 with half of reads flipped.
+#           Y = 10. The maximum number of entries in the FASTQ
+#           file is 360*15*10 = 54,000
 
 # Valid values for quality_type are 'high', 'medium', 'low'
 
@@ -74,7 +67,7 @@ VERSION = 0.06
 # Frequency file:
 # A frequency file is used to specify the number of reads in SSCS, DCS, and
 # families. The frequency file is in the format
-#  <fasta header>\t<num_families>\t<num flipped>\t<num_reads>\t<quality type>
+#  <fasta header>\t<num_families>\t<num_reads>\t<quality type>
 
 # Ex:
 # >rs100092491:allele1	3	5 	high
@@ -95,7 +88,6 @@ OPT_DEFAULTS = {
     'barcode_length': 10, 'spacer_length': 1,
     'min_num_families': 2, 'max_num_families': 15,
     'min_num_reads': 3, 'max_num_reads': 20,
-    'min_num_flipped': 2, 'max_num_flipped': 10,  # defaults to half of reads
     'read_length': 156, 'buffer_both_sides': 0,
     'buffer_end': 1, 'truncate_by_read': 1,
     'wobble_read': None, 'rand_window': None,
@@ -158,15 +150,6 @@ def main(argv):
     parser.add_argument('--read_length', '-rl', type=int, required=False,
                         help='Length of sequence in FASTQ output.\
                         Default: 156')
-    parser.add_argument('--max_num_flipped', '-maxnff', type=int,
-                        required=False, help='Maximum number of flipped \
-                        families per molecule.')
-    parser.add_argument('--min_num_flipped', '-minnff', type=int,
-                        required=False, help='Minimum number of flipped \
-                        familes per molecule. Default: 1')
-    parser.add_argument('--num_flipped', '-nff', type=int,
-                        required=False, help='Number of flipped families \
-                        per molecule.')
     parser.add_argument('--prefix', '-p', type=str, required=False,
                         help='Prefix for FASTQ output files. Default: DSWF')
     parser.add_argument('--instrument', '-inst', type=str, required=False,
@@ -253,17 +236,19 @@ def main(argv):
         args.max_num_reads = args.min_num_reads
     if args.min_num_families > args.max_num_families:
         args.max_num_families = args.min_num_families
-    if args.min_num_flipped > args.max_num_flipped:
-        args.max_num_flipped = args.min_num_flipped
 
-    fasta = open(args.fasta)
+    if is_gzip(args.fasta):
+        records = SeqIO.parse(gzip.open(args.fasta, "rt"), "fasta")
+    else:
+        records = SeqIO.parse(open(args.fasta, "rt"), "fasta")
+
     seq1_file = gzip.open(args.prefix + '_seq1.fastq.gz', 'wb')
     seq2_file = gzip.open(args.prefix + '_seq2.fastq.gz', 'wb')
     if args.map_file is 1:
         args.map_file = gzip.open(args.prefix + '_map.txt.gz', 'wb')
         args.map_file.write("VERSION\t" + str(VERSION) + "\n")
         args.map_file.write("\t".join(["FASTA Header", "Num Familes",
-                                       "Num Reads", "Num Flipped", "Barcode A",
+                                       "Num Reads", "Barcode A",
                                        "Barcode B", "Full Barcode"]) + "\n")
     if args.tag_file == 1:
         args.tag_file = gzip.open(args.prefix + '_tags.txt.gz', 'wb')
@@ -271,20 +256,15 @@ def main(argv):
         args.tag_file.write("\t".join(["FASTA Header", "Barcode", "Reads Seq1",
                                        "Reads Seq2"]) + "\n")
 
-    while True:
-        header = fasta.readline().rstrip('\r\n')
-        line = fasta.readline()
-        if not line:
-            break
-        seq = line.rstrip('\r\n').upper()
-        (clan_seq1, clan_seq2) = make_clan(header, seq, args)
+    for rec in records:
+        print("making fastq records for {}".format(rec.seq))
+        (clan_seq1, clan_seq2) = make_clan(rec.name, rec.seq, args)
         seq1_file.write("\n".join(map("\n".join, clan_seq1)) + "\n")
         seq2_file.write("\n".join(map("\n".join, clan_seq2)) + "\n")
     if args.map_file:
         args.map_file.close()
     seq1_file.close()
     seq2_file.close()
-    fasta.close()
     print("Finished generating FASTQ files")
 
     exit(0)
@@ -425,16 +405,6 @@ def make_family(header, seq, args, num_families):
     if args.num_reads:
         num_reads = args.num_reads
 
-    # set up number of flipped
-    if args.min_num_flipped > args.max_num_flipped:
-        raise ValueError("Incorrect value of min_num_flipped or max_num_flipped")
-    num_flipped = randint(args.min_num_flipped, args.max_num_flipped)
-    # must also be half or less of the num_reads
-    if num_flipped > num_reads / 2:
-        num_flipped = int(num_reads / 2)
-    if args.num_flipped:
-        num_flipped = args.num_flipped
-
     if args.barcode_a:
         barcode_a = args.barcode_a
     else:
@@ -457,20 +427,20 @@ def make_family(header, seq, args, num_families):
 
     fullbarcode = barcode_a + barcode_b
     if args.map_file:
-        args.map_file.write("{0}	{1}	{2}	{3}	{4}	{5}	{6}\n".format(
-            header, num_families, num_reads, num_flipped, barcode_a,
+        args.map_file.write("{0}	{1}	{2}	{3}	{4}	{5}\n".format(
+            header, num_families, num_reads, barcode_a,
             barcode_b, fullbarcode))
     read_set = []
     read_set2 = []
     read_names_seq1 = []
     read_names_seq2 = []
-    bSeq = Seq(seq)
     # To simulate different sequences from one fasta sequence
     # ab:1 and ba:2 use 5' sequence
     # ab:2 and ba:1 use 3' sequence
     # five_a_ds_read is ab:1 and ba:2
     five_a_ds_read = make_ds_read(args, seq, barcode_a, '5')
     five_b_ds_read = make_ds_read(args, seq, barcode_b, '5')
+
     # three_b_ds_read is ba:1 and ab:2
     three_a_ds_read = make_ds_read(args, seq, barcode_a, '3')
     three_b_ds_read = make_ds_read(args, seq, barcode_b, '3')
@@ -481,68 +451,39 @@ def make_family(header, seq, args, num_families):
         args, len(three_b_ds_read))
 
     # we have num_reads to produce the following:
-    count_flipped = 0
     for i in range(1, num_reads + 1):
         (fastq_header, paired_header) = fastq_entry_header(args, header,
                                                            fullbarcode)
         (fastq_header2, paired_header2) = fastq_entry_header(args, header,
                                                              fullbarcode)
         read_names_seq1.append(fastq_header)
-        read_names_seq1.append(fastq_header2)
-        read_names_seq2.append(paired_header)
+        read_names_seq2.append(fastq_header2)
+        read_names_seq1.append(paired_header)
         read_names_seq2.append(paired_header2)
-        # add a reversed read if we have flipped to add
-        if (num_flipped > count_flipped):
-            count_flipped += 1
 
-            read_names_seq2.append(fastq_header)    # ab1
-            read_names_seq2.append(fastq_header2)   # ab2
-            read_names_seq2.append(paired_header)   # ba1
-            read_names_seq2.append(paired_header2)  # ba2
+        # ab:1 matches ba:2
+        # ba:1 matches ab:2
+        # add ab
+        read_set.append(fastq_header)   # ab1
+        read_set.append(five_a_ds_read)
+        read_set.append("+")
+        read_set.append(five_quality)
 
-            # add ab:1 and ba:1 to read_set
-            read_set.append(fastq_header)
-            read_set.append(five_a_ds_read)
-            read_set.append("+")
-            read_set.append(five_quality)
+        read_set2.append(paired_header) # ab2
+        read_set2.append(three_b_ds_read)
+        read_set2.append("+")
+        read_set2.append(three_quality)
 
-            read_set.append(fastq_header2)
-            read_set.append(three_b_ds_read)
-            read_set.append("+")
-            read_set.append(three_quality)
+        # add ba
+        read_set.append(fastq_header2)  # ba1
+        read_set.append(three_b_ds_read)
+        read_set.append("+")
+        read_set.append(three_quality)
 
-            # add ab:2 and ba:2 to read_set2
-            read_set2.append(paired_header)
-            read_set2.append(three_b_ds_read)
-            read_set2.append("+")
-            read_set2.append(three_quality)
-
-            read_set2.append(paired_header2)
-            read_set2.append(five_a_ds_read)
-            read_set2.append("+")
-            read_set2.append(five_quality)
-        else:
-            # add ab:1 and ba:1 to read_set
-            read_set.append(fastq_header)
-            read_set.append(five_b_ds_read)
-            read_set.append("+")
-            read_set.append(five_quality)
-
-            read_set.append(fastq_header2)
-            read_set.append(three_a_ds_read)
-            read_set.append("+")
-            read_set.append(three_quality)
-
-            # add ab:2 and ba:2 to read_set2
-            read_set2.append(paired_header)
-            read_set2.append(three_a_ds_read)
-            read_set2.append("+")
-            read_set2.append(three_quality)
-
-            read_set2.append(paired_header2)
-            read_set2.append(five_b_ds_read)
-            read_set2.append("+")
-            read_set2.append(five_quality)
+        read_set2.append(paired_header2) # ba2
+        read_set2.append(five_a_ds_read)
+        read_set2.append("+")
+        read_set2.append(five_quality)
 
     if args.tag_file:
         args.tag_file.write("\t".join([header, fullbarcode, ",".join(read_names_seq1), ",".join(read_names_seq2)]) + "\n")
@@ -630,6 +571,14 @@ def fastq_entry_header(args, fasta_header, barcode):
     # always return both headers and allow downstream to decide what to output
     return ("@{0}:{1}:{2}:{3}:{4}:{5}:{6} {7}:{8}:{9}".format(args.instrument, '1', args.flow_cell, lane, full_tile, x_pos, y_pos, '1', filter, control),  # nopep8
             "@{0}:{1}:{2}:{3}:{4}:{5}:{6} {7}:{8}:{9}".format(args.instrument, '1', args.flow_cell, lane, full_tile, x_pos, y_pos, '2', filter, control))  # nopep8
+
+def is_gzip(filename):
+    magic_bytes = b'\x1f\x8b\x08'
+    with open(filename, "rb") as infile:
+        file_start = infile.read(len(magic_bytes))
+    if file_start.startswith(magic_bytes):
+        return True
+    return False
 
 if __name__ == '__main__':
     sys.exit(main(sys.argv))
